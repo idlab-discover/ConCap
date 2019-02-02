@@ -18,7 +18,9 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-func getClientSet() *kubernetes.Clientset {
+var kubeClient kubernetes.Clientset
+
+func init() {
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -26,7 +28,6 @@ func getClientSet() *kubernetes.Clientset {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
 	flag.Parse()
-
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err)
@@ -35,7 +36,19 @@ func getClientSet() *kubernetes.Clientset {
 	if err != nil {
 		panic(err)
 	}
-	return clientset
+	kubeClient = *clientset
+}
+
+func execReq() {
+	podsClient := kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
+	list, err := podsClient.List(metav1.ListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	for _, d := range list.Items {
+		fmt.Printf(" * %s \n", d.Name)
+	}
+	//req := kubeClient.RESTClient().Post().Namespace("default").Resource("pods").Name()
 }
 
 func DeployTemplateBuilder() *appsv1.Deployment {
@@ -60,6 +73,9 @@ func DeployTemplateBuilder() *appsv1.Deployment {
 					},
 				},
 				Spec: apiv1.PodSpec{
+					ImagePullSecrets: []apiv1.LocalObjectReference{
+						{Name: "idlab-gitlab"},
+					},
 					Containers: []apiv1.Container{
 						{
 							Name:  "web1",
@@ -73,11 +89,16 @@ func DeployTemplateBuilder() *appsv1.Deployment {
 							},
 						},
 						{
-							Name:            "nmap",
-							Image:           "localhost:5000/nmap-scanner:v1",
-							ImagePullPolicy: "Never",
-							Stdin:           true,
-							TTY:             true,
+							Name:  "nmap",
+							Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.0",
+							Stdin: true,
+							TTY:   true,
+						},
+						{
+							Name:  "tcpdump",
+							Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.0",
+							Stdin: true,
+							TTY:   true,
 						},
 					},
 				},
@@ -88,8 +109,7 @@ func DeployTemplateBuilder() *appsv1.Deployment {
 }
 
 func DeployExecutor(deployment *appsv1.Deployment) {
-	clientset := *getClientSet()
-	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
+	deploymentsClient := kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault)
 	// Create Deployment
 	fmt.Println("Creating deployment...")
 	result, err := deploymentsClient.Create(deployment)
@@ -135,13 +155,14 @@ func DeployExecutor(deployment *appsv1.Deployment) {
 	// List Deployments
 	prompt()
 	fmt.Printf("Listing deployments in namespace %q:\n", apiv1.NamespaceDefault)
-	list, err := deploymentsClient.List(metav1.ListOptions{})
-	if err != nil {
-		panic(err)
-	}
-	for _, d := range list.Items {
-		fmt.Printf(" * %s (%d replicas)\n", d.Name, *d.Spec.Replicas)
-	}
+	execReq()
+	// list, err := deploymentsClient.List(metav1.ListOptions{})
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// for _, d := range list.Items {
+	// 	fmt.Printf(" * %s (%d replicas)\n", d.Name, *d.Spec.Replicas)
+	// }
 
 	// Delete Deployment
 	prompt()
