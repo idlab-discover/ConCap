@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/client-go/util/retry"
@@ -18,6 +20,7 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
+var kubeConfig *rest.Config
 var kubeClient kubernetes.Clientset
 
 func init() {
@@ -28,27 +31,15 @@ func init() {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
 	flag.Parse()
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	kubeConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err)
 	}
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		panic(err)
 	}
 	kubeClient = *clientset
-}
-
-func execReq() {
-	podsClient := kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
-	list, err := podsClient.List(metav1.ListOptions{})
-	if err != nil {
-		panic(err)
-	}
-	for _, d := range list.Items {
-		fmt.Printf(" * %s \n", d.Name)
-	}
-	//req := kubeClient.RESTClient().Post().Namespace("default").Resource("pods").Name()
 }
 
 func DeployTemplateBuilder() *appsv1.Deployment {
@@ -68,6 +59,7 @@ func DeployTemplateBuilder() *appsv1.Deployment {
 			Template: apiv1.PodTemplateSpec{
 
 				ObjectMeta: metav1.ObjectMeta{
+					Name: "demo-pod",
 					Labels: map[string]string{
 						"app": "demo",
 					},
@@ -118,6 +110,10 @@ func DeployExecutor(deployment *appsv1.Deployment) {
 	}
 	fmt.Printf("Created deployment %q.\n", result.GetObjectMeta().GetName())
 
+	time.Sleep(time.Duration(100) * time.Second)
+	fmt.Printf("Trying to execute command")
+	ExecCommand("default", "demo-pod", "tcpdump", "tcpdump -n -i lo -w /var/tmp/o.pcap")
+
 	// Update Deployment
 	prompt()
 	fmt.Println("Updating deployment...")
@@ -155,7 +151,6 @@ func DeployExecutor(deployment *appsv1.Deployment) {
 	// List Deployments
 	prompt()
 	fmt.Printf("Listing deployments in namespace %q:\n", apiv1.NamespaceDefault)
-	execReq()
 	// list, err := deploymentsClient.List(metav1.ListOptions{})
 	// if err != nil {
 	// 	panic(err)
