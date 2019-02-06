@@ -112,7 +112,7 @@ func DeployExecutor(deployment *appsv1.Deployment) {
 
 	time.Sleep(time.Duration(100) * time.Second)
 	fmt.Printf("Trying to execute command")
-	ExecCommand("default", "demo-pod", "tcpdump", "tcpdump -n -i lo -w /var/tmp/o.pcap")
+	ExecCommandInContainerWithFullOutput("default", "demo-pod", "tcpdump", "tcpdump -n -i lo -w /var/tmp/o.pcap")
 
 	// Update Deployment
 	prompt()
