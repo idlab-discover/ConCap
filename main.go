@@ -10,5 +10,5 @@ func main() {
 	fmt.Println("Containercap")
 	//capengi.AfpacketCap()
 	//capengi.LibpcapCap("eno1")
-	kubeapi.DeployExecutor(kubeapi.DeployTemplateBuilder())
+	kubeapi.PodExecutor(kubeapi.PodTemplateBuilder())
 }
