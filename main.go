@@ -8,7 +8,10 @@ import (
 
 func main() {
 	fmt.Println("Containercap")
-	//capengi.AfpacketCap()
-	//capengi.LibpcapCap("eno1")
-	kubeapi.PodExecutor(kubeapi.PodTemplateBuilder())
+
+	podspec := kubeapi.PodTemplateBuilder()
+	kubeapi.CreatePod(podspec)
+	kubeapi.UpdatePod()
+	kubeapi.ListPod()
+	kubeapi.DeletePod()
 }

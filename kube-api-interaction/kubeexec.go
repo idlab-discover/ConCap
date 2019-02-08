@@ -30,7 +30,7 @@ type ExecOptions struct {
 // additional parameters to be passed.
 func ExecWithOptions(options ExecOptions) (string, string, error) {
 	const tty = false
-	req := kubeClient.Core().RESTClient().Post().
+	req := kubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(options.PodName).
 		Namespace(options.Namespace).
