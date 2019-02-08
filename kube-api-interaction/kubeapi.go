@@ -78,6 +78,35 @@ func PodTemplateBuilder() *apiv1.Pod {
 					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.0",
 					Stdin: true,
 					TTY:   true,
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "cap-store",
+							MountPath: "/var/captures",
+						},
+						{
+							Name:      "pv-cap-store",
+							MountPath: "/var/pv-captures",
+						},
+					},
+				},
+			},
+			Volumes: []apiv1.Volume{
+				{
+					Name: "cap-store",
+					VolumeSource: apiv1.VolumeSource{
+						HostPath: &apiv1.HostPathVolumeSource{
+							Path: "/home/dhoogla/Documents/PhD/captures",
+						},
+					},
+				},
+				{
+					Name: "pv-cap-store",
+					VolumeSource: apiv1.VolumeSource{
+						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc100-captures",
+							ReadOnly:  false,
+						},
+					},
 				},
 			},
 		},

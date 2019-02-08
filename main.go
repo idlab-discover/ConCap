@@ -13,5 +13,9 @@ func main() {
 	kubeapi.CreatePod(podspec)
 	kubeapi.UpdatePod()
 	kubeapi.ListPod()
+	// kubeapi.ExecCommandInContainer("default", "demo-pod", "tcpdump", "tcpdump -i lo")
+	// fmt.Println(kubeapi.ExecShellInContainer("default", "demo-pod", "nmap", "nmap -sS -A -T5 localhost"))
+	fmt.Println(kubeapi.ExecShellInContainer("default", "demo-pod", "tcpdump", "echo hi > /var/captures/ax"))
+	fmt.Println(kubeapi.ExecShellInContainer("default", "demo-pod", "tcpdump", "echo hi > /var/pv-captures/ax"))
 	kubeapi.DeletePod()
 }
