@@ -8,14 +8,11 @@ import (
 
 func main() {
 	fmt.Println("Containercap")
-
 	podspec := kubeapi.PodTemplateBuilder()
 	kubeapi.CreatePod(podspec)
-	kubeapi.UpdatePod()
+	go kubeapi.ExecCommandInContainer("default", "demo-pod", "tcpdump", "tcpdump", "-i", "lo", "-n", "-w", "/var/h-captures/exp.pcap")
+	go kubeapi.ExecShellInContainer("default", "demo-pod", "nmap", "nmap -sS -A -T5 localhost")
 	kubeapi.ListPod()
-	// kubeapi.ExecCommandInContainer("default", "demo-pod", "tcpdump", "tcpdump -i lo")
-	// fmt.Println(kubeapi.ExecShellInContainer("default", "demo-pod", "nmap", "nmap -sS -A -T5 localhost"))
-	fmt.Println(kubeapi.ExecShellInContainer("default", "demo-pod", "tcpdump", "echo hi > /var/captures/ax"))
-	fmt.Println(kubeapi.ExecShellInContainer("default", "demo-pod", "tcpdump", "echo hi > /var/pv-captures/ax"))
+	//kubeapi.UpdatePod()
 	kubeapi.DeletePod()
 }

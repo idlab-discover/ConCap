@@ -45,11 +45,13 @@ func init() {
 }
 
 func PodTemplateBuilder() *apiv1.Pod {
-
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo-pod",
 			Namespace: apiv1.NamespaceDefault,
+			Labels: map[string]string{
+				"containercap": "storage",
+			},
 		},
 		Spec: apiv1.PodSpec{
 			ImagePullSecrets: []apiv1.LocalObjectReference{
@@ -69,42 +71,49 @@ func PodTemplateBuilder() *apiv1.Pod {
 				},
 				{
 					Name:  "nmap",
-					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.0",
+					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.1",
 					Stdin: true,
 					TTY:   true,
 				},
 				{
 					Name:  "tcpdump",
-					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.0",
+					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.1",
 					Stdin: true,
 					TTY:   true,
-					VolumeMounts: []apiv1.VolumeMount{
-						{
-							Name:      "cap-store",
-							MountPath: "/var/captures",
+					Lifecycle: &apiv1.Lifecycle{
+						PreStop: &apiv1.Handler{
+							Exec: &apiv1.ExecAction{
+								Command: []string{"/bin/bash", "-c", "kill -15 $(ps e | grep \"[t]cpdump\" | cut -d' ' -f 1)"},
+							},
 						},
+					},
+					VolumeMounts: []apiv1.VolumeMount{
+						// {
+						// 	Name:      "pv-cap-store",
+						// 	MountPath: "/var/pv-captures",
+						// },
 						{
-							Name:      "pv-cap-store",
-							MountPath: "/var/pv-captures",
+							Name:      "hostpath-store",
+							MountPath: "/var/h-captures",
 						},
 					},
 				},
 			},
 			Volumes: []apiv1.Volume{
+				// {
+				// 	Name: "pv-cap-store",
+				// 	VolumeSource: apiv1.VolumeSource{
+				// 		PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
+				// 			ClaimName: "containercap-pvc",
+				// 			ReadOnly:  false,
+				// 		},
+				// 	},
+				// },
 				{
-					Name: "cap-store",
+					Name: "hostpath-store",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/home/dhoogla/Documents/PhD/captures",
-						},
-					},
-				},
-				{
-					Name: "pv-cap-store",
-					VolumeSource: apiv1.VolumeSource{
-						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "pvc100-captures",
-							ReadOnly:  false,
+							Path: "/hosthome/dhoogla/Documents/PhD/pv-captures",
 						},
 					},
 				},
@@ -200,4 +209,5 @@ func prompt() {
 	fmt.Println()
 }
 
-func int32Ptr(i int32) *int32 { return &i }
+func int32Ptr(i int32) *int32                                          { return &i }
+func modePtr(s apiv1.MountPropagationMode) *apiv1.MountPropagationMode { return &s }
