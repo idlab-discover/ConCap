@@ -8,12 +8,17 @@ import (
 
 var ledger cmap.ConcurrentMap
 
+type LedgerEntry struct {
+	State    string
+	Scenario *scenario.Scenario
+}
+
 func init() {
 	ledger = cmap.New()
 }
 
 func Register(scn *scenario.Scenario) {
-	ledger.Set(scn.UUID.URN(), *scn)
+	ledger.Set(scn.UUID.URN(), LedgerEntry{State: "DECLARED", Scenario: scn})
 }
 
 func Unregister(uuid uuid.UUID) {

@@ -17,7 +17,6 @@ func main() {
 	}
 	scenario := scenario.BuildScenario(file)
 	ledger.Register(scenario)
-	fmt.Println(ledger.Count())
 	// podspec := kubeapi.PodTemplateBuilder()
 	// kubeapi.CreatePod(podspec)
 	// go kubeapi.ExecCommandInContainer("default", "demo-pod", "tcpdump", "tcpdump", "-i", "lo", "-n", "-w", "/var/h-captures/exp.pcap")
