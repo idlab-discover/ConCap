@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -44,7 +45,7 @@ func init() {
 	podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
 }
 
-func PodTemplateBuilder() *apiv1.Pod {
+func PodTemplateBuilder(scn *scenario.Scenario) *apiv1.Pod {
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo-pod",
