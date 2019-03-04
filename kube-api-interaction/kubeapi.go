@@ -84,7 +84,7 @@ func PodTemplateBuilder(scn *scenario.Scenario) *apiv1.Pod {
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
-								Command: []string{"/bin/bash", "-c", "kill -15 $(ps e | grep \"[t]cpdump\" | cut -d' ' -f 1)"},
+								Command: []string{"/bin/bash", "-c", "kill -15 $(ps aux | grep \"[t]cpdump\" | tr -s \" \" | cut -d \" \" -f 1)"},
 							},
 						},
 					},
