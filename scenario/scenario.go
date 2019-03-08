@@ -29,7 +29,7 @@ type Attacker struct {
 type Target struct {
 	Name  string
 	Image string
-	Ports []int
+	Ports []int32
 }
 
 type CaptureEngine struct {

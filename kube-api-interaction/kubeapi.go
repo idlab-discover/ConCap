@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+	"github.com/k0kubun/pp"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -43,86 +43,6 @@ func init() {
 	kubeConfig = kubeConf
 	kubeClient = *clientset
 	podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
-}
-
-func PodTemplateBuilder(scn *scenario.Scenario) *apiv1.Pod {
-	pod := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "demo-pod",
-			Namespace: apiv1.NamespaceDefault,
-			Labels: map[string]string{
-				"containercap": "storage",
-			},
-		},
-		Spec: apiv1.PodSpec{
-			ImagePullSecrets: []apiv1.LocalObjectReference{
-				{Name: "idlab-gitlab"},
-			},
-			Containers: []apiv1.Container{
-				{
-					Name:  "web1",
-					Image: "nginx:1.12",
-					Ports: []apiv1.ContainerPort{
-						{
-							Name:          "http1",
-							Protocol:      apiv1.ProtocolTCP,
-							ContainerPort: 80,
-						},
-					},
-				},
-				{
-					Name:  "nmap",
-					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.1",
-					Stdin: true,
-					TTY:   true,
-				},
-				{
-					Name:  "tcpdump",
-					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.1",
-					Stdin: true,
-					TTY:   true,
-					Lifecycle: &apiv1.Lifecycle{
-						PreStop: &apiv1.Handler{
-							Exec: &apiv1.ExecAction{
-								Command: []string{"/bin/bash", "-c", "kill -15 $(ps aux | grep \"[t]cpdump\" | tr -s \" \" | cut -d \" \" -f 1)"},
-							},
-						},
-					},
-					VolumeMounts: []apiv1.VolumeMount{
-						// {
-						// 	Name:      "pv-cap-store",
-						// 	MountPath: "/var/pv-captures",
-						// },
-						{
-							Name:      "hostpath-store",
-							MountPath: "/var/h-captures",
-						},
-					},
-				},
-			},
-			Volumes: []apiv1.Volume{
-				// {
-				// 	Name: "pv-cap-store",
-				// 	VolumeSource: apiv1.VolumeSource{
-				// 		PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-				// 			ClaimName: "containercap-pvc",
-				// 			ReadOnly:  false,
-				// 		},
-				// 	},
-				// },
-				{
-					Name: "hostpath-store",
-					VolumeSource: apiv1.VolumeSource{
-						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/Documents/PhD/pv-captures",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return pod
 }
 
 func CreatePod(pod *apiv1.Pod) {
@@ -178,24 +98,37 @@ func ListPod() {
 	if err != nil {
 		panic(err)
 	}
-	for _, d := range list.Items {
-		fmt.Printf(" * %s \n", d.Name)
+	for k, d := range list.Items {
+		pp.Printf(" %d %+v \n", k, d.Status.ContainerStatuses)
 	}
 	prompt()
 }
 
-func DeletePod() {
+func DeletePod(name string) {
 	// Delete Deployment
 	prompt()
 	fmt.Println("Deleting pod...")
 	deletePolicy := metav1.DeletePropagationForeground
-	if err := podsClient.Delete("demo-pod", &metav1.DeleteOptions{
+	if err := podsClient.Delete(name, &metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}); err != nil {
 		panic(err)
 	}
 	fmt.Println("Deleted pod")
 
+}
+
+func WatchPod() {
+	prompt()
+	fmt.Println("Watching pods...")
+	watch, err := podsClient.Watch(metav1.ListOptions{Watch: true})
+	if err != nil {
+		panic(err)
+	}
+	eventChan := watch.ResultChan()
+	for event := range eventChan {
+		fmt.Println(event)
+	}
 }
 
 func prompt() {

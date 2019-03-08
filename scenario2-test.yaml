@@ -2,9 +2,9 @@ attacker:
   name: nmap
   image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.1
 target:
-  name: web
-  image: nginx:1.12
-  ports: [80]    
+  name: httpd
+  image: httpd:2.4.38
+  ports: [80]
 captureEngine:
   name: tcpdump
   image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.1

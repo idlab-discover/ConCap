@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/ledger"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
@@ -15,13 +16,27 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	scenario := scenario.BuildScenario(file)
-	ledger.Register(scenario)
-	// podspec := kubeapi.PodTemplateBuilder()
-	// kubeapi.CreatePod(podspec)
-	// go kubeapi.ExecCommandInContainer("default", "demo-pod", "tcpdump", "tcpdump", "-i", "lo", "-n", "-w", "/var/h-captures/exp.pcap")
-	// go kubeapi.ExecShellInContainer("default", "demo-pod", "nmap", "nmap -sS -A -T5 localhost")
-	// kubeapi.ListPod()
-	// //kubeapi.UpdatePod()
-	// kubeapi.DeletePod()
+	scn := scenario.BuildScenario(file)
+	ledger.Register(scn)
+	ledger.Dump()
+	podspec := scenario.PodTemplateBuilder(scn)
+	kubeapi.CreatePod(podspec)
+	kubeapi.ExecShellInContainer("default", scn.UUID.String(), "nmap", "nmap -sS -A -T5 localhost")
+	kubeapi.DeletePod(scn.UUID.String())
+
+	file, err = os.Open("scenario2-test.yaml")
+	if err != nil {
+		log.Fatal(err)
+	}
+	scn = scenario.BuildScenario(file)
+	ledger.Register(scn)
+	ledger.Dump()
+	podspec = scenario.PodTemplateBuilder(scn)
+	kubeapi.CreatePod(podspec)
+	kubeapi.ExecShellInContainer("default", scn.UUID.String(), "nmap", "nmap -sS -A -T5 localhost")
+
+	//kubeapi.WatchPod()
+	//kubeapi.ListPod()
+	//kubeapi.UpdatePod()
+	kubeapi.DeletePod(scn.UUID.String())
 }
