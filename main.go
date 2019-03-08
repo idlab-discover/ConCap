@@ -21,6 +21,9 @@ func main() {
 	ledger.Dump()
 	podspec := scenario.PodTemplateBuilder(scn)
 	kubeapi.CreatePod(podspec)
+
+	var nmap atk.Nmap
+	scn.Attacker.AtkCommand = nmap.BuildAtkCommand()
 	kubeapi.ExecShellInContainer("default", scn.UUID.String(), "nmap", "nmap -sS -A -T5 localhost")
 	kubeapi.DeletePod(scn.UUID.String())
 

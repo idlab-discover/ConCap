@@ -22,8 +22,9 @@ type Scenario struct {
 }
 
 type Attacker struct {
-	Name  string
-	Image string
+	Name       string
+	Image      string
+	AtkCommand string `yaml: atkCommand`
 }
 
 type Target struct {
