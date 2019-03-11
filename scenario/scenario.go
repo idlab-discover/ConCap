@@ -18,7 +18,7 @@ type Scenario struct {
 	Attacker      Attacker
 	Target        Target
 	CaptureEngine CaptureEngine `yaml:"captureEngine"`
-	Tags          []string
+	Tag           string
 }
 
 type Attacker struct {

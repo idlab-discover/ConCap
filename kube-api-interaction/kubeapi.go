@@ -1,10 +1,8 @@
 package kubeapi
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/k0kubun/pp"
@@ -53,7 +51,6 @@ func CreatePod(pod *apiv1.Pod) {
 		panic(err)
 	}
 	fmt.Printf("Created pod %q.\n", result.GetObjectMeta().GetName())
-	prompt()
 }
 
 func UpdatePod() {
@@ -87,8 +84,6 @@ func UpdatePod() {
 		panic(fmt.Errorf("Update failed: %v", retryErr))
 	}
 	fmt.Println("Updated pod...")
-
-	prompt()
 }
 
 func ListPod() {
@@ -101,12 +96,10 @@ func ListPod() {
 	for k, d := range list.Items {
 		pp.Printf(" %d %+v \n", k, d.Status.ContainerStatuses)
 	}
-	prompt()
 }
 
 func DeletePod(name string) {
 	// Delete Deployment
-	prompt()
 	fmt.Println("Deleting pod...")
 	deletePolicy := metav1.DeletePropagationForeground
 	if err := podsClient.Delete(name, &metav1.DeleteOptions{
@@ -119,7 +112,6 @@ func DeletePod(name string) {
 }
 
 func WatchPod() {
-	prompt()
 	fmt.Println("Watching pods...")
 	watch, err := podsClient.Watch(metav1.ListOptions{Watch: true})
 	if err != nil {
@@ -131,16 +123,21 @@ func WatchPod() {
 	}
 }
 
-func prompt() {
-	fmt.Printf("-> Press Return key to continue.")
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		break
-	}
-	if err := scanner.Err(); err != nil {
+func CheckPodStatus(name string, results chan<- bool) {
+	pod, err := podsClient.Get(name, metav1.GetOptions{})
+	if err != nil {
 		panic(err)
 	}
-	fmt.Println()
+	switch pod.Status.Phase {
+	case "Pending":
+		results <- false
+	case "Running":
+		results <- true
+		close(results)
+	default:
+		fmt.Println("Found an unrecognised phase state", pod.Status.Phase)
+		panic("help")
+	}
 }
 
 func int32Ptr(i int32) *int32                                          { return &i }

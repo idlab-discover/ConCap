@@ -1,10 +1,10 @@
-uuid: 7791a673-d8d8-4b42-b363-128e50e14c24
-startTime: 2019-03-11T11:44:47.65308111+01:00
-stopTime: 2019-03-11T11:44:56.701026998+01:00
+uuid: 86f09fc4-ac93-4164-a81a-42393a2dbeb3
+startTime: 2019-03-11T14:35:29.951903814+01:00
+stopTime: 2019-03-11T14:35:39.013577421+01:00
 attacker:
   name: nmap
   image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.1
-  atkcommand: nmap localhost -sS -T5
+  atkcommand: nmap localhost -SM -T3 -f
 target:
   name: httpd
   image: httpd:2.4.38
@@ -14,4 +14,4 @@ captureEngine:
   name: tcpdump
   image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.1
   filter: ""
-tags: []
+tag: ""
