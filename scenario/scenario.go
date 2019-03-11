@@ -39,19 +39,27 @@ type CaptureEngine struct {
 	Filter string
 }
 
-func BuildScenario(r io.Reader) *Scenario {
+func ReadScenario(r io.Reader) *Scenario {
 	S := Scenario{}
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error: %v", err)
 	}
 
 	err = yaml.UnmarshalStrict(b, &S)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error: %v", err)
 	}
 	S.UUID = uuid.New()
 	fmt.Printf("Scenario struct %+v\n", S)
 
 	return &S
+}
+
+func WriteScenario(s *Scenario, f string) error {
+	b, err := yaml.Marshal(s)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+	return ioutil.WriteFile(f, b, 0644)
 }
