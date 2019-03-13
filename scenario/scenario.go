@@ -1,7 +1,6 @@
 package scenario
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -51,7 +50,7 @@ func ReadScenario(r io.Reader) *Scenario {
 		log.Fatalf("error: %v", err)
 	}
 	S.UUID = uuid.New()
-	fmt.Printf("Scenario struct %+v\n", S)
+	//fmt.Printf("Scenario struct %+v\n", S)
 
 	return &S
 }

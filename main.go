@@ -15,67 +15,65 @@ import (
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
+func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
+	defer wg.Done()
+	fh, err := os.Open("testcases/" + filename)
+	defer fh.Close()
+	if err != nil {
+		log.Println("Couldn't read file", filename)
+	}
+	scn := scenario.ReadScenario(fh)
+	ledger.Register(scn)
+	scns <- scn
+	fmt.Println("loaded scenario onto channel")
+}
+
 func main() {
 	fmt.Println("Containercap")
-	var wg sync.WaitGroup
 	files, err := ioutil.ReadDir("testcases")
+	fmt.Println("Number of files read", len(files))
 	if err != nil {
 		log.Fatal(err)
 	}
-	scenarios := make(chan scenario.Scenario)
+
+	var wg sync.WaitGroup
+
+	scenarios := make(chan *scenario.Scenario, len(files))
+
 	for _, file := range files {
-		go func() {
-			fh, err := os.Open(file.Name())
-			defer fh.Close()
-			if err != nil {
-				log.Println("Couldn't read file", file.Name())
-			}
-			scn := scenario.ReadScenario(fh)
-			ledger.Register(scn)
-		}()
+		wg.Add(1)
+		fmt.Println("Fx:", file.Name())
+		go loadScenarios(file.Name(), scenarios, &wg)
 	}
+	wg.Wait()
+	close(scenarios)
 
-	//ledger.Dump()
-	podspec := scenario.PodTemplateBuilder(scn)
-	kubeapi.CreatePod(podspec)
-	podStates := make(chan bool, 100)
-	go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
-	for msg := range podStates {
-		if msg {
-			wg.Add(1)
-			go func() {
-				nmap := atktools.NewNmap()
-				scn.Attacker.AtkCommand = strings.Join(nmap.BuildAtkCommand(), " ")
-				fmt.Println("launched: ", scn.Attacker.AtkCommand)
-				scn.StartTime = time.Now()
-				kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
-				kubeapi.DeletePod(scn.UUID.String())
-				scn.StopTime = time.Now()
-				scenario.WriteScenario(scn, file.Name())
-				wg.Done()
-			}()
-			wg.Wait()
-		} else {
-			fmt.Print("Check again\n")
-			time.Sleep(10 * time.Second)
+	for scene := range scenarios {
+		wg.Add(1)
+		go func(scn *scenario.Scenario, wg *sync.WaitGroup) {
+			defer wg.Done()
+			podspec := scenario.PodTemplateBuilder(scn)
+			kubeapi.CreatePod(podspec)
+			podStates := make(chan bool, 100)
 			go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
-		}
+			for msg := range podStates {
+				if msg {
+					nmap := atktools.NewNmap()
+					scn.Attacker.AtkCommand = strings.Join(nmap.BuildAtkCommand(), " ")
+					fmt.Println("launched: ", scn.Attacker.AtkCommand)
+					scn.StartTime = time.Now()
+					kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
+					kubeapi.DeletePod(scn.UUID.String())
+					scn.StopTime = time.Now()
+					//scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
+				} else {
+					fmt.Print("Check again\n")
+					time.Sleep(10 * time.Second)
+					go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
+				}
+			}
+		}(scene, &wg)
 	}
-
-	// file, err = os.Open("scenario2-test.yaml")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// scn = scenario.ReadScenario(file)
-	// ledger.Register(scn)
-	// ledger.Dump()
-	// podspec = scenario.PodTemplateBuilder(scn)
-	// kubeapi.CreatePod(podspec)
-	// scn.Attacker.AtkCommand = strings.Join(nmap.BuildAtkCommand(), " ")
-	// fmt.Println("launched: ", scn.Attacker.AtkCommand)
-	// scn.StartTime = time.Now()
-	// kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
-	// kubeapi.DeletePod(scn.UUID.String())
-	// scn.StopTime = time.Now()
-	// scenario.WriteScenario(scn, file.Name())
+	fmt.Println("Waiting for wait group to end")
+	wg.Wait()
 }
