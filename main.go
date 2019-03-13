@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -17,14 +18,24 @@ import (
 func main() {
 	fmt.Println("Containercap")
 	var wg sync.WaitGroup
-	file, err := os.Open("scenario-test.yaml")
-	defer file.Close()
+	files, err := ioutil.ReadDir("testcases")
 	if err != nil {
 		log.Fatal(err)
 	}
-	scn := scenario.ReadScenario(file)
-	ledger.Register(scn)
-	ledger.Dump()
+	scenarios := make(chan scenario.Scenario)
+	for _, file := range files {
+		go func() {
+			fh, err := os.Open(file.Name())
+			defer fh.Close()
+			if err != nil {
+				log.Println("Couldn't read file", file.Name())
+			}
+			scn := scenario.ReadScenario(fh)
+			ledger.Register(scn)
+		}()
+	}
+
+	//ledger.Dump()
 	podspec := scenario.PodTemplateBuilder(scn)
 	kubeapi.CreatePod(podspec)
 	podStates := make(chan bool, 100)
@@ -37,7 +48,7 @@ func main() {
 				scn.Attacker.AtkCommand = strings.Join(nmap.BuildAtkCommand(), " ")
 				fmt.Println("launched: ", scn.Attacker.AtkCommand)
 				scn.StartTime = time.Now()
-				kubeapi.ExecShellInContainer("default", scn.UUID.String(), "nmap", scn.Attacker.AtkCommand)
+				kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
 				kubeapi.DeletePod(scn.UUID.String())
 				scn.StopTime = time.Now()
 				scenario.WriteScenario(scn, file.Name())
@@ -63,11 +74,8 @@ func main() {
 	// scn.Attacker.AtkCommand = strings.Join(nmap.BuildAtkCommand(), " ")
 	// fmt.Println("launched: ", scn.Attacker.AtkCommand)
 	// scn.StartTime = time.Now()
-	// kubeapi.ExecShellInContainer("default", scn.UUID.String(), "nmap", scn.Attacker.AtkCommand)
+	// kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
 	// kubeapi.DeletePod(scn.UUID.String())
 	// scn.StopTime = time.Now()
 	// scenario.WriteScenario(scn, file.Name())
-
-	//kubeapi.ListPod()
-
 }
