@@ -36,22 +36,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var wg sync.WaitGroup
-
 	scenarios := make(chan *scenario.Scenario, len(files))
 
-	for _, file := range files {
-		wg.Add(1)
-		fmt.Println("Fx:", file.Name())
-		go loadScenarios(file.Name(), scenarios, &wg)
-	}
-	wg.Wait()
-	close(scenarios)
+	go func() {
+		defer close(scenarios)
+		var wgReadExp sync.WaitGroup
+		for _, file := range files {
+			wgReadExp.Add(1)
+			fmt.Println("Fx:", file.Name())
+			go loadScenarios(file.Name(), scenarios, &wgReadExp)
+		}
+		wgReadExp.Wait()
+	}()
 
+	var wgExecExp sync.WaitGroup
 	for scene := range scenarios {
-		wg.Add(1)
+		wgExecExp.Add(1)
 		go func(scn *scenario.Scenario, wg *sync.WaitGroup) {
-			defer wg.Done()
+			defer wgExecExp.Done()
 			podspec := scenario.PodTemplateBuilder(scn)
 			kubeapi.CreatePod(podspec)
 			podStates := make(chan bool, 100)
@@ -72,8 +74,8 @@ func main() {
 					go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
 				}
 			}
-		}(scene, &wg)
+		}(scene, &wgExecExp)
 	}
 	fmt.Println("Waiting for wait group to end")
-	wg.Wait()
+	wgExecExp.Wait()
 }
