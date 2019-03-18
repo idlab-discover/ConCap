@@ -33,9 +33,10 @@ type Target struct {
 }
 
 type CaptureEngine struct {
-	Name   string
-	Image  string
-	Filter string
+	Name      string
+	Image     string
+	Interface string
+	Filter    string
 }
 
 func ReadScenario(r io.Reader) *Scenario {
