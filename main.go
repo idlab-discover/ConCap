@@ -28,6 +28,30 @@ func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitG
 	fmt.Println("loaded scenario onto channel")
 }
 
+func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
+	defer wg.Done()
+	podspec := scenario.PodTemplateBuilder(scn)
+	kubeapi.CreatePod(podspec)
+	podStates := make(chan bool, 100)
+	go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
+	for msg := range podStates {
+		if msg {
+			attacker := atktools.SelectAttacker(scn.Attacker.Name)
+			scn.Attacker.AtkCommand = strings.Join(attacker.BuildAtkCommand(), " ")
+			fmt.Println("launched: ", scn.Attacker.AtkCommand)
+			scn.StartTime = time.Now()
+			kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
+			kubeapi.DeletePod(scn.UUID.String())
+			scn.StopTime = time.Now()
+			//scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
+		} else {
+			fmt.Print("Check again\n")
+			time.Sleep(10 * time.Second)
+			go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
+		}
+	}
+}
+
 func main() {
 	fmt.Println("Containercap")
 	files, err := ioutil.ReadDir("testcases")
@@ -52,29 +76,7 @@ func main() {
 	var wgExecExp sync.WaitGroup
 	for scene := range scenarios {
 		wgExecExp.Add(1)
-		go func(scn *scenario.Scenario, wg *sync.WaitGroup) {
-			defer wgExecExp.Done()
-			podspec := scenario.PodTemplateBuilder(scn)
-			kubeapi.CreatePod(podspec)
-			podStates := make(chan bool, 100)
-			go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
-			for msg := range podStates {
-				if msg {
-					nmap := atktools.NewNmap()
-					scn.Attacker.AtkCommand = strings.Join(nmap.BuildAtkCommand(), " ")
-					fmt.Println("launched: ", scn.Attacker.AtkCommand)
-					scn.StartTime = time.Now()
-					kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
-					kubeapi.DeletePod(scn.UUID.String())
-					scn.StopTime = time.Now()
-					//scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
-				} else {
-					fmt.Print("Check again\n")
-					time.Sleep(10 * time.Second)
-					go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
-				}
-			}
-		}(scene, &wgExecExp)
+		go startScenario(scene, &wgExecExp)
 	}
 	fmt.Println("Waiting for wait group to end")
 	wgExecExp.Wait()

@@ -8,9 +8,9 @@ type Nmap struct {
 
 func NewNmap() Nmap {
 	nmap := Nmap{}
-	nmap.discovery = []string{"-sL", "-sn", "-Pn", "-PU", "-PR"}
+	nmap.discovery = []string{"-sL", "-Pn", "-PU", "-PR"}
 	nmap.port = []string{"--top-ports 50", "--top-ports 100", "--top-ports 500", "--top-ports 1000", "--top-ports 2000", "-p-"}
-	nmap.scanTypes = []string{"-sS", "-sT", "-sU", "-sA", "-sW", "-sW", "-sM"}
+	nmap.scanTypes = []string{"-sS", "-sT", "-sU", "-sA", "-sW", "-sM"}
 	nmap.srvDetect = []string{"-A", "-sV", "-sV --version-light", "-sV --version-all"}
 	nmap.osDetect = []string{"-O", "-O --osscan-limit", "-O --osscan-guess"}
 	nmap.timing = []string{"-T3", "-T4", "-T5"}
