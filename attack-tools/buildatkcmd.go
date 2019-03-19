@@ -10,6 +10,10 @@ func SelectAttacker(name string) AttackCommandBuilder {
 	switch name {
 	case "nmap":
 		return NewNmap()
+	case "vulscan":
+		return Vulscan{}
+	case "autonse":
+		return AutoNSE{}
 	case "zmap":
 		return NewZmap()
 	default:
