@@ -24,6 +24,10 @@ func Register(scn *scenario.Scenario) {
 	ledger.Set(scn.UUID.String(), LedgerEntry{State: "DECLARED", Scenario: scn})
 }
 
+func UpdateState(uuid string, le LedgerEntry) {
+	ledger.Set(uuid, le)
+}
+
 func Unregister(uuid uuid.UUID) {
 	ledger.Remove(uuid.String())
 }

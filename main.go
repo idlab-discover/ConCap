@@ -32,6 +32,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
 	podspec := scenario.PodTemplateBuilder(scn)
 	kubeapi.CreatePod(podspec)
+	ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{"CREATED", scn})
 	podStates := make(chan bool, 100)
 	go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
 	for msg := range podStates {
@@ -40,8 +41,10 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			scn.Attacker.AtkCommand = strings.Join(attacker.BuildAtkCommand(), " ")
 			fmt.Println("launched: ", scn.Attacker.AtkCommand)
 			scn.StartTime = time.Now()
+			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{"IN PROGRESS", scn})
 			kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
 			kubeapi.DeletePod(scn.UUID.String())
+			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{"COMPLETED", scn})
 			scn.StopTime = time.Now()
 			//scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
 		} else {
@@ -71,6 +74,7 @@ func main() {
 			go loadScenarios(file.Name(), scenarios, &wgReadExp)
 		}
 		wgReadExp.Wait()
+		ledger.Repr()
 	}()
 
 	var wgExecExp sync.WaitGroup
