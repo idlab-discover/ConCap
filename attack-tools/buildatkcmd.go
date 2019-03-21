@@ -8,6 +8,10 @@ func init() {
 
 func SelectAttacker(name string) AttackCommandBuilder {
 	switch name {
+	case "bluto":
+		return Bluto{}
+	case "n3map":
+		return NewN3Map()
 	case "nmap":
 		return NewNmap()
 	case "vulscan":
