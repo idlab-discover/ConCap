@@ -8,6 +8,12 @@ func init() {
 
 func SelectAttacker(name string) AttackCommandBuilder {
 	switch name {
+	case "xsstracer":
+		return Xsstracer{}
+	case "topera":
+		return NewTopera()
+	case "verbal":
+		return Verbal{}
 	case "bluto":
 		return Bluto{}
 	case "n3map":
