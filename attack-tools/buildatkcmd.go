@@ -26,6 +26,8 @@ func SelectAttacker(name string) AttackCommandBuilder {
 		return Barmie{}
 	case "cangibrina":
 		return Cangibrina{}
+	case "corstest":
+		return Corstest{}
 	case "cipherscan":
 		return Cipherscan{}
 	case "bluto":
