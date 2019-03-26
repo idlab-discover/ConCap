@@ -14,6 +14,20 @@ func SelectAttacker(name string) AttackCommandBuilder {
 		return NewTopera()
 	case "verbal":
 		return Verbal{}
+	case "a2sv":
+		return NewA2sv()
+	case "allthevhosts":
+		return Allthevhosts{}
+	case "amass":
+		return NewAmass()
+	case "netdomains":
+		return NewNetdomains()
+	case "barmie":
+		return Barmie{}
+	case "cangibrina":
+		return Cangibrina{}
+	case "cipherscan":
+		return Cipherscan{}
 	case "bluto":
 		return Bluto{}
 	case "n3map":
