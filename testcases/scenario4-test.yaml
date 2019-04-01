@@ -1,0 +1,18 @@
+uuid: 86f09fc4-ac93-4164-a81a-42393a2dbeb5
+startTime: 2019-03-11T14:35:29.951903814+01:00
+stopTime: 2019-03-11T14:35:39.013577421+01:00
+attacker:
+  name: xsstracer
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/xsstracer-scanner:v1.0.0
+  atkcommand:
+target:
+  name: dvwa
+  image: vulnerables/web-dvwa:latest
+  ports:
+  - 80:80
+captureEngine:
+  name: tcpdump
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.1  
+  interface: "lo"
+  filter: ""  
+tag: ""

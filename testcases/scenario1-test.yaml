@@ -1,0 +1,18 @@
+uuid: ef9a0cb5-c5d5-4783-bc44-3cac344b48b7
+startTime: 2019-03-11T17:09:43.192101769+01:00
+stopTime: 2019-03-11T17:09:45.267337497+01:00
+attacker:
+  name: nmap
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.1
+  atkcommand: nmap localhost -sT -p- -T3
+target:
+  name: web
+  image: nginx:1.12
+  ports:
+  - 80
+captureEngine:
+  name: tcpdump
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:v1.0.1
+  interface: "lo"
+  filter: ""
+tag: ""
