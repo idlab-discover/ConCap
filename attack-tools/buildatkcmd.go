@@ -36,6 +36,18 @@ func SelectAttacker(name string) AttackCommandBuilder {
 		return Cipherscan{}
 	case "bluto":
 		return Bluto{}
+	case "enumshares":
+		return Enumshares{}
+	case "laf":
+		return Laf{}
+	case "sslscan":
+		return Sslscan{}
+	case "subfinder":
+		return Subfinder{}
+	case "subover":
+		return SubOver{}
+	case "vane2":
+		return Vane2{}
 	case "n3map":
 		return NewN3Map()
 	case "nmap":
