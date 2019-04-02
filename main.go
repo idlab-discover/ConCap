@@ -46,7 +46,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
-			//scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
+			// scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
 		} else {
 			fmt.Print("Check again\n")
 			time.Sleep(10 * time.Second)
