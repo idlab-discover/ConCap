@@ -1,5 +1,11 @@
 package atktools
 
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
+
 var (
 	topPorts   TopPorts
 	topDomains TopDomains
@@ -7,7 +13,7 @@ var (
 
 func init() {
 	topPorts = *NewTopPorts()
-	topDomains = *NewTopDomains()
+	topDomains = *NewTopDomains("filtered-1m.list")
 }
 
 func SelectAttacker(name string) AttackCommandBuilder {
@@ -71,10 +77,23 @@ type TopDomains struct {
 	domains []string
 }
 
-func NewTopDomains() *TopDomains {
-	return &TopDomains{
-		domains: []string{},
+func NewTopDomains(domainlist string) *TopDomains {
+	file, err := os.Open(domainlist)
+	if err != nil {
+		fmt.Println(err)
 	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	td := TopDomains{
+		domains: lines,
+	}
+	return &td
 }
 
 type CustomDomains struct {
