@@ -3,6 +3,7 @@ package atktools
 import "math/rand"
 
 type Topera struct {
+	weight       int
 	parts, modes []string
 }
 
@@ -15,5 +16,6 @@ func NewTopera() Topera {
 func (topera Topera) BuildAtkCommand() []string {
 	topera.parts = []string{"topera", "-t ::1", "-M"}
 	topera.parts = append(topera.parts, topera.modes[rand.Intn(len(topera.modes))])
+	topera.weight = 5
 	return topera.parts
 }

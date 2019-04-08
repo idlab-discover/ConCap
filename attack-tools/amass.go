@@ -3,11 +3,13 @@ package atktools
 import "math/rand"
 
 type Amass struct {
+	weight           int
 	parts, wordlists []string
 }
 
 func NewAmass() Amass {
 	amass := Amass{}
+	amass.weight = 25
 	amass.wordlists = []string{
 		"/usr/share/amass/wordlists/all.txt",
 		"/usr/share/amass/wordlists/asnlist.txt",
@@ -33,6 +35,7 @@ func (amass Amass) BuildAtkCommand() []string {
 	if rand.Float32() < 0.5 {
 		amass.parts = append(amass.parts, "-w", amass.wordlists[rand.Intn(len(amass.wordlists))])
 	}
+	// TODO, add random domain selection !!
 	amass.parts = append(amass.parts, "-d", "ugent.be,example.com,kuleuven.be")
 	return amass.parts
 }

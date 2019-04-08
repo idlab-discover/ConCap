@@ -3,6 +3,8 @@ package scenariobuilder
 import (
 	"flag"
 
+	atktools "gitlab.ilabt.imec.be/lpdhooge/containercap/attack-tools"
+
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
@@ -16,6 +18,14 @@ var (
 
 func main() {
 	flag.Parse()
+
+}
+
+func selectTools(category, name string) (map[atktools.AttackCommandBuilder]int, error) {
+	var selection = map[atktools.AttackCommandBuilder]int{}
+	if category != "" && name != "" {
+		selection[atktools.SelectAttacker(category, name)] = 
+	}
 
 }
 

@@ -6,8 +6,9 @@ import (
 )
 
 type Netdomains struct {
-	parts []string
-	asns  []int
+	weight int
+	parts  []string
+	asns   []int
 }
 
 func NewNetdomains() Netdomains {
@@ -19,5 +20,6 @@ func NewNetdomains() Netdomains {
 func (netdomains Netdomains) BuildAtkCommand() []string {
 	netdomains.parts = []string{"amass.netdomains", "-p 80,443,8080,8443", "-whois", "-asn"}
 	netdomains.parts = append(netdomains.parts, strconv.Itoa(netdomains.asns[rand.Intn(len(netdomains.asns))]))
+	netdomains.weight = 10
 	return netdomains.parts
 }

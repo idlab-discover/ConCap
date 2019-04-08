@@ -6,11 +6,9 @@ import (
 )
 
 type Zmap struct {
-	parts      []string
-	probes     uint32
-	probeType  []string
-	percentage []string
-	timeout    uint32
+	weight                       int
+	parts, probeType, percentage []string
+	probes, timeout              uint32
 }
 
 func NewZmap() Zmap {
@@ -28,5 +26,6 @@ func (zmap Zmap) BuildAtkCommand() []string {
 	zmap.parts = append(zmap.parts, "-p", strconv.FormatUint(uint64(zmap.probes), 10))
 	zmap.timeout = uint32(30 + rand.Intn(270))
 	zmap.parts = append(zmap.parts, "-t", strconv.FormatUint(uint64(zmap.timeout), 10))
+	zmap.weight = 10
 	return zmap.parts
 }

@@ -22,7 +22,7 @@ func init() {
 	topDomains = *NewTopDomains("filtered-1m.list")
 }
 
-func FetchAttacker(category, name string) (AttackCommandBuilder, error) {
+func fetchAttacker(category, name string) (AttackCommandBuilder, error) {
 	if val, ok := attackers[category][name]; ok {
 		return val, nil
 	} else {
@@ -83,7 +83,7 @@ func FetchAttacker(category, name string) (AttackCommandBuilder, error) {
 }
 
 func SelectAttacker(category, name string) AttackCommandBuilder {
-	val, err := FetchAttacker(category, name)
+	val, err := fetchAttacker(category, name)
 	if err != nil {
 		log.Fatalln(err)
 	}
