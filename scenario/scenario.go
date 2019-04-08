@@ -21,15 +21,17 @@ type Scenario struct {
 }
 
 type Attacker struct {
+	Category   string
 	Name       string
 	Image      string
 	AtkCommand string `yaml:"atkCommand"`
 }
 
 type Target struct {
-	Name  string
-	Image string
-	Ports []int32
+	Category string
+	Name     string
+	Image    string
+	Ports    []int32
 }
 
 type CaptureEngine struct {

@@ -37,7 +37,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
 	for msg := range podStates {
 		if msg {
-			attacker := atktools.SelectAttacker(scn.Attacker.Name)
+			attacker := atktools.SelectAttacker(scn.Attacker.Category, scn.Attacker.Name)
 			scn.Attacker.AtkCommand = strings.Join(attacker.BuildAtkCommand(), " ")
 			fmt.Println("launched: ", scn.Attacker.AtkCommand)
 			scn.StartTime = time.Now()

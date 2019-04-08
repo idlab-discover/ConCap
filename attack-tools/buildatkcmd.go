@@ -2,7 +2,9 @@ package atktools
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -11,62 +13,81 @@ var (
 	topDomains TopDomains
 )
 
+var attackers = map[string]map[string]AttackCommandBuilder{
+	"scanner": map[string]AttackCommandBuilder{},
+}
+
 func init() {
 	topPorts = *NewTopPorts()
 	topDomains = *NewTopDomains("filtered-1m.list")
 }
 
-func SelectAttacker(name string) AttackCommandBuilder {
-	switch name {
-	case "xsstracer":
-		return Xsstracer{}
-	case "topera":
-		return NewTopera()
-	case "verbal":
-		return Verbal{}
-	case "a2sv":
-		return NewA2sv()
-	case "allthevhosts":
-		return Allthevhosts{}
-	case "amass":
-		return NewAmass()
-	case "netdomains":
-		return NewNetdomains()
-	case "barmie":
-		return Barmie{}
-	case "cangibrina":
-		return Cangibrina{}
-	case "corstest":
-		return Corstest{}
-	case "cipherscan":
-		return Cipherscan{}
-	case "bluto":
-		return Bluto{}
-	case "enumshares":
-		return Enumshares{}
-	case "laf":
-		return Laf{}
-	case "sslscan":
-		return Sslscan{}
-	case "subfinder":
-		return Subfinder{}
-	case "subover":
-		return SubOver{}
-	case "vane2":
-		return Vane2{}
-	case "n3map":
-		return NewN3Map()
-	case "nmap":
-		return NewNmap()
-	case "vulscan":
-		return Vulscan{}
-	case "autonse":
-		return AutoNSE{}
-	case "zmap":
-		return NewZmap()
-	default:
-		return nil
+func FetchAttacker(category, name string) (AttackCommandBuilder, error) {
+	if val, ok := attackers[category][name]; ok {
+		return val, nil
+	} else {
+		var a AttackCommandBuilder
+		switch name {
+		case "xsstracer":
+			a = Xsstracer{}
+		case "topera":
+			a = NewTopera()
+		case "verbal":
+			a = Verbal{}
+		case "a2sv":
+			a = NewA2sv()
+		case "allthevhosts":
+			a = Allthevhosts{}
+		case "amass":
+			a = NewAmass()
+		case "netdomains":
+			a = NewNetdomains()
+		case "barmie":
+			a = Barmie{}
+		case "cangibrina":
+			a = Cangibrina{}
+		case "corstest":
+			a = Corstest{}
+		case "cipherscan":
+			a = Cipherscan{}
+		case "bluto":
+			a = Bluto{}
+		case "enumshares":
+			a = Enumshares{}
+		case "laf":
+			a = Laf{}
+		case "sslscan":
+			a = Sslscan{}
+		case "subfinder":
+			a = Subfinder{}
+		case "subover":
+			a = SubOver{}
+		case "vane2":
+			a = Vane2{}
+		case "n3map":
+			a = NewN3Map()
+		case "nmap":
+			a = NewNmap()
+		case "vulscan":
+			a = Vulscan{}
+		case "autonse":
+			a = AutoNSE{}
+		case "zmap":
+			a = NewZmap()
+		default:
+			return nil, errors.New("Attacker not recognized")
+		}
+		attackers[category][name] = a
+		return a, nil
 	}
+}
+
+func SelectAttacker(category, name string) AttackCommandBuilder {
+	val, err := FetchAttacker(category, name)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return val
 }
 
 type AttackCommandBuilder interface {

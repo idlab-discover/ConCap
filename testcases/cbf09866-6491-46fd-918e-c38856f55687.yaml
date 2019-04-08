@@ -2,10 +2,12 @@ uuid: cbf09866-6491-46fd-918e-c38856f55687
 startTime: 2019-04-02T13:46:30.257718704+02:00
 stopTime: 2019-04-02T13:46:30.643905763+02:00
 attacker:
+  category: scanner
   name: nmap
   image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap-scanner:v1.0.1
-  atkcommand: nmap localhost -sA -T4
+  atkCommand: nmap localhost -sA -T4
 target:
+  category: webserver
   name: web
   image: nginx:1.12
   ports:

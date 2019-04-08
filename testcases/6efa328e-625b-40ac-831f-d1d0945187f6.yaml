@@ -2,11 +2,13 @@ uuid: 6efa328e-625b-40ac-831f-d1d0945187f6
 startTime: 2019-04-02T13:46:30.263773747+02:00
 stopTime: 2019-04-02T13:46:39.490159779+02:00
 attacker:
+  category: scanner
   name: vulscan
   image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/vulscan-scanner:v1.0.1
-  atkcommand: nmap -sV --script=vulscan/vulscan.nse --script-args vulscanoutput=details
+  atkCommand: nmap -sV --script=vulscan/vulscan.nse --script-args vulscanoutput=details
     localhost
 target:
+  category: webserver
   name: httpd
   image: httpd:2.4.38
   ports:
