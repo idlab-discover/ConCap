@@ -22,6 +22,10 @@ func init() {
 	topDomains = *NewTopDomains("filtered-1m.list")
 }
 
+type AttackCommandBuilder interface {
+	BuildAtkCommand() []string
+}
+
 func fetchAttacker(category, name string) (AttackCommandBuilder, error) {
 	if val, ok := attackers[category][name]; ok {
 		return val, nil
@@ -88,11 +92,6 @@ func SelectAttacker(category, name string) AttackCommandBuilder {
 		log.Fatalln(err)
 	}
 	return val
-}
-
-type AttackCommandBuilder interface {
-	BuildAtkCommand() []string
-	Weight() int
 }
 
 type TopDomains struct {
