@@ -59,10 +59,6 @@ func PodTemplateBuilder(scn *Scenario) *apiv1.Pod {
 						},
 					},
 					VolumeMounts: []apiv1.VolumeMount{
-						// {
-						// 	Name:      "pv-cap-store",
-						// 	MountPath: "/var/pv-captures",
-						// },
 						{
 							Name:      "hostpath-store",
 							MountPath: "/var/h-captures",
@@ -71,15 +67,6 @@ func PodTemplateBuilder(scn *Scenario) *apiv1.Pod {
 				},
 			},
 			Volumes: []apiv1.Volume{
-				// {
-				// 	Name: "pv-cap-store",
-				// 	VolumeSource: apiv1.VolumeSource{
-				// 		PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-				// 			ClaimName: "containercap-pvc",
-				// 			ReadOnly:  false,
-				// 		},
-				// 	},
-				// },
 				{
 					Name: "hostpath-store",
 					VolumeSource: apiv1.VolumeSource{
