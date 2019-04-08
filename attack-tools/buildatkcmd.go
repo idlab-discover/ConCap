@@ -92,6 +92,7 @@ func SelectAttacker(category, name string) AttackCommandBuilder {
 
 type AttackCommandBuilder interface {
 	BuildAtkCommand() []string
+	Weight() int
 }
 
 type TopDomains struct {

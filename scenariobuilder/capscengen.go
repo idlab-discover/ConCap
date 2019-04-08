@@ -24,7 +24,8 @@ func main() {
 func selectTools(category, name string) (map[atktools.AttackCommandBuilder]int, error) {
 	var selection = map[atktools.AttackCommandBuilder]int{}
 	if category != "" && name != "" {
-		selection[atktools.SelectAttacker(category, name)] = 
+		attacker = atktools.SelectAttacker(category, name)
+		selection[attacker] = attacker.Weight
 	}
 
 }

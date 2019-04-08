@@ -1,12 +1,12 @@
 package atktools
 
 type Enumshares struct {
-	weight int
+	Weight int
 	parts  []string
 }
 
 func (enumshares Enumshares) BuildAtkCommand() []string {
 	enumshares.parts = []string{"printf \"yes\n\"", "|", "enum-shares", "-w", "-t", "localhost", "-u", "root", "-p", "root"}
-	enumshares.weight = 1
+	enumshares.Weight = 1
 	return enumshares.parts
 }

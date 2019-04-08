@@ -3,7 +3,7 @@ package atktools
 import "math/rand"
 
 type Nmap struct {
-	weight                                                                          int
+	Weight                                                                          int
 	discovery, port, scanTypes, srvDetect, osDetect, timing, script, evasion, parts []string
 }
 
@@ -44,6 +44,6 @@ func (nmap Nmap) BuildAtkCommand() []string {
 	if rand.Float32() < 0.33 {
 		nmap.parts = append(nmap.parts, nmap.evasion[rand.Intn(len(nmap.evasion))])
 	}
-	nmap.weight = 50
+	nmap.Weight = 50
 	return nmap.parts
 }

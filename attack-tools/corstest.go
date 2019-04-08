@@ -1,12 +1,12 @@
 package atktools
 
 type Corstest struct {
-	weight int
+	Weight int
 	parts  []string
 }
 
 func (corstest Corstest) BuildAtkCommand() []string {
 	corstest.parts = []string{"corstest", "-v"}
-	corstest.weight = 1
+	corstest.Weight = 1
 	return corstest.parts
 }

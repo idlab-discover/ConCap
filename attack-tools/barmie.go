@@ -1,12 +1,12 @@
 package atktools
 
 type Barmie struct {
-	weight int
+	Weight int
 	parts  []string
 }
 
 func (barmie Barmie) BuildAtkCommand() []string {
 	barmie.parts = []string{"barmie", "-attack", "127.0.0.1"}
-	barmie.weight = 1
+	barmie.Weight = 1
 	return barmie.parts
 }

@@ -3,13 +3,13 @@ package atktools
 import "math/rand"
 
 type Amass struct {
-	weight           int
+	Weight           int
 	parts, wordlists []string
 }
 
 func NewAmass() Amass {
 	amass := Amass{}
-	amass.weight = 25
+	amass.Weight = 25
 	amass.wordlists = []string{
 		"/usr/share/amass/wordlists/all.txt",
 		"/usr/share/amass/wordlists/asnlist.txt",

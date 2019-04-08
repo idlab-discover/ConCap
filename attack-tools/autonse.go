@@ -1,12 +1,12 @@
 package atktools
 
 type AutoNSE struct {
-	weight int
+	Weight int
 	parts  []string
 }
 
 func (autonse AutoNSE) BuildAtkCommand() []string {
 	autonse.parts = []string{"printf", "\"n\nlocalhost\n\"", "|", "autonse"}
-	autonse.weight = 1
+	autonse.Weight = 1
 	return autonse.parts
 }

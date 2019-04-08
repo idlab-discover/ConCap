@@ -3,14 +3,14 @@ package atktools
 import "math/rand"
 
 type A2sv struct {
-	weight  int
+	Weight  int
 	parts   []string
 	modules []string
 }
 
 func NewA2sv() A2sv {
 	a2sv := A2sv{}
-	a2sv.weight = 10
+	a2sv.Weight = 10
 	a2sv.modules = []string{"anonymous", "crime", "heart", "ccs", "poodle", "freak", "logjam", "drown"}
 	return a2sv
 }
