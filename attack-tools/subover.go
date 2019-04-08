@@ -3,7 +3,7 @@ package atktools
 import "math/rand"
 
 type SubOver struct {
-	Weight int
+	weight int
 	parts  []string
 }
 
@@ -12,6 +12,10 @@ func (subover SubOver) BuildAtkCommand() []string {
 	if rand.Float32() < 0.5 {
 		subover.parts = append(subover.parts, "-https")
 	}
-	subover.Weight = 1
+	subover.weight = 1
 	return subover.parts
+}
+
+func (subover SubOver) Weight() int {
+	return subover.weight
 }

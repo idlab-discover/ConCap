@@ -1,12 +1,16 @@
 package atktools
 
 type Cipherscan struct {
-	Weight int
+	weight int
 	parts  []string
 }
 
 func (cipherscan Cipherscan) BuildAtkCommand() []string {
 	cipherscan.parts = []string{"cipherscan", "-v", "ugent.be"}
-	cipherscan.Weight = 1
+	cipherscan.weight = 1
 	return cipherscan.parts
+}
+
+func (cipherscan Cipherscan) Weight() int {
+	return cipherscan.weight
 }

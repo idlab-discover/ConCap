@@ -3,7 +3,7 @@ package atktools
 import "math/rand"
 
 type Verbal struct {
-	Weight int
+	weight int
 	parts  []string
 }
 
@@ -14,6 +14,10 @@ func (verbal Verbal) BuildAtkCommand() []string {
 	} else {
 		verbal.parts = append(verbal.parts, "https://127.0.0.1")
 	}
-	verbal.Weight = 1
+	verbal.weight = 1
 	return verbal.parts
+}
+
+func (verbal Verbal) Weight() int {
+	return verbal.weight
 }

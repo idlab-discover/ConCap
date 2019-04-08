@@ -24,11 +24,12 @@ func init() {
 
 type AttackCommandBuilder interface {
 	BuildAtkCommand() []string
+	Weight() int
 }
 
-func fetchAttacker(category, name string) (AttackCommandBuilder, error) {
+func fetchAttacker(category, name string) (*AttackCommandBuilder, error) {
 	if val, ok := attackers[category][name]; ok {
-		return val, nil
+		return &val, nil
 	} else {
 		var a AttackCommandBuilder
 		switch name {
@@ -82,16 +83,23 @@ func fetchAttacker(category, name string) (AttackCommandBuilder, error) {
 			return nil, errors.New("Attacker not recognized")
 		}
 		attackers[category][name] = a
-		return a, nil
+		return &a, nil
 	}
 }
 
-func SelectAttacker(category, name string) AttackCommandBuilder {
+func SelectAttacker(category, name string) *AttackCommandBuilder {
 	val, err := fetchAttacker(category, name)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	return val
+}
+
+func SelectAttackers(category string) *map[string]AttackCommandBuilder {
+	if val, found := attackers[category]; found {
+		return &val
+	}
+	return &map[string]AttackCommandBuilder{}
 }
 
 type TopDomains struct {

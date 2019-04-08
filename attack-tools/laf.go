@@ -1,7 +1,7 @@
 package atktools
 
 type Laf struct {
-	Weight     int
+	weight     int
 	parts, sys []string
 }
 
@@ -14,6 +14,10 @@ func NewLaf() Laf {
 // todo add port specification via host:port notation which works
 func (laf Laf) BuildAtkCommand() []string {
 	laf.parts = []string{"laf", "-d", "localhost", "-u", "admin", "-p", "admin"}
-	laf.Weight = 5
+	laf.weight = 5
 	return laf.parts
+}
+
+func (laf Laf) Weight() int {
+	return laf.weight
 }

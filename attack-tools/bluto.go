@@ -1,7 +1,7 @@
 package atktools
 
 type Bluto struct {
-	Weight       int
+	weight       int
 	parts        []string
 	targetDomain string
 }
@@ -9,6 +9,10 @@ type Bluto struct {
 func (bluto Bluto) BuildAtkCommand() []string {
 	bluto.parts = []string{"bluto", "-e"}
 	bluto.parts = append(bluto.parts, "-d", bluto.targetDomain)
-	bluto.Weight = 1
+	bluto.weight = 1
 	return bluto.parts
+}
+
+func (bluto Bluto) Weight() int {
+	return bluto.weight
 }

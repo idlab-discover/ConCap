@@ -3,13 +3,17 @@ package atktools
 import "strconv"
 
 type Xsstracer struct {
-	Weight     int
+	weight     int
 	parts      []string
 	targetPort int
 }
 
 func (xsstracer Xsstracer) BuildAtkCommand() []string {
 	xsstracer.parts = []string{"xsstracer", "127.0.0.1", strconv.Itoa(xsstracer.targetPort)}
-	xsstracer.Weight = 1
+	xsstracer.weight = 1
 	return xsstracer.parts
+}
+
+func (xsstracer Xsstracer) Weight() int {
+	return xsstracer.weight
 }

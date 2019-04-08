@@ -3,7 +3,7 @@ package atktools
 import "math/rand"
 
 type Cangibrina struct {
-	Weight int
+	weight int
 	parts  []string
 }
 
@@ -15,6 +15,10 @@ func (cangibrina Cangibrina) BuildAtkCommand() []string {
 	} else {
 		cangibrina.parts = append(cangibrina.parts, "-w /usr/share/cangibrina/wordlists/wl_big")
 	}
-	cangibrina.Weight = 1
+	cangibrina.weight = 1
 	return cangibrina.parts
+}
+
+func (cangibrina Cangibrina) Weight() int {
+	return cangibrina.weight
 }
