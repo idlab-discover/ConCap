@@ -25,11 +25,11 @@ func selectTools(category, name string) (map[atktools.AttackCommandBuilder]int, 
 	var selection = map[atktools.AttackCommandBuilder]int{}
 	if category != "" && name != "" {
 		attacker := *atktools.SelectAttacker(category, name)
-		selection[attacker] = attacker.Weight
+		selection[attacker] = attacker.Weight()
 	} else if category != "" && name == "" {
 		attackers := *atktools.SelectAttackers(category)
-		for k, v := range attackers {
-			selection[v] = v.Weight
+		for _, v := range attackers {
+			selection[v] = v.Weight()
 		}
 	}
 	return selection, nil
