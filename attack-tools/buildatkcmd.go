@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
 var (
@@ -25,6 +27,7 @@ func init() {
 type AttackCommandBuilder interface {
 	BuildAtkCommand() []string
 	Weight() int
+	ScenarioType() scenario.ScenarioType
 }
 
 func fetchAttacker(category, name string) (*AttackCommandBuilder, error) {
@@ -34,49 +37,49 @@ func fetchAttacker(category, name string) (*AttackCommandBuilder, error) {
 		var a AttackCommandBuilder
 		switch name {
 		case "xsstracer":
-			a = Xsstracer{}
+			a = NewXsstracer()
 		case "topera":
 			a = NewTopera()
 		case "verbal":
-			a = Verbal{}
+			a = NewVerbal()
 		case "a2sv":
 			a = NewA2sv()
 		case "allthevhosts":
-			a = Allthevhosts{}
+			a = NewAllthevhosts()
 		case "amass":
 			a = NewAmass()
 		case "netdomains":
 			a = NewNetdomains()
 		case "barmie":
-			a = Barmie{}
+			a = NewBarmie()
 		case "cangibrina":
-			a = Cangibrina{}
+			a = NewCangibrina()
 		case "corstest":
-			a = Corstest{}
+			a = NewCorstest()
 		case "cipherscan":
-			a = Cipherscan{}
+			a = NewCipherscan()
 		case "bluto":
-			a = Bluto{}
+			a = NewBluto()
 		case "enumshares":
-			a = Enumshares{}
+			a = NewEnumshares()
 		case "laf":
-			a = Laf{}
+			a = NewLaf()
 		case "sslscan":
-			a = Sslscan{}
+			a = NewSslscan()
 		case "subfinder":
-			a = Subfinder{}
+			a = NewSubfinder()
 		case "subover":
-			a = SubOver{}
+			a = NewSubover()
 		case "vane2":
-			a = Vane2{}
+			a = NewVane2()
 		case "n3map":
-			a = NewN3Map()
+			a = NewN3map()
 		case "nmap":
 			a = NewNmap()
 		case "vulscan":
-			a = Vulscan{}
+			a = NewVulscan()
 		case "autonse":
-			a = AutoNSE{}
+			a = NewAutoNSE()
 		case "zmap":
 			a = NewZmap()
 		default:

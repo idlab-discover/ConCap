@@ -10,10 +10,21 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type ScenarioType string
+
+const (
+	Scanning   ScenarioType = "scanning"
+	Exploit    ScenarioType = "exploit"
+	Bruteforce ScenarioType = "bruteforce"
+	Dos        ScenarioType = "dos"
+	DDoS       ScenarioType = "ddos"
+)
+
 type Scenario struct {
 	UUID          uuid.UUID
-	StartTime     time.Time `yaml:"startTime"`
-	StopTime      time.Time `yaml:"stopTime"`
+	ScenarioType  ScenarioType `yaml:"scenarioType"`
+	StartTime     time.Time    `yaml:"startTime"`
+	StopTime      time.Time    `yaml:"stopTime"`
 	Attacker      Attacker
 	Target        Target
 	CaptureEngine CaptureEngine `yaml:"captureEngine"`
@@ -21,7 +32,7 @@ type Scenario struct {
 }
 
 type Attacker struct {
-	Category   string
+	Category   ScenarioType
 	Name       string
 	Image      string
 	AtkCommand string `yaml:"atkCommand"`

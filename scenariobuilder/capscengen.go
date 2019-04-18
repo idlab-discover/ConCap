@@ -3,6 +3,7 @@ package scenariobuilder
 import (
 	"flag"
 
+	"github.com/google/uuid"
 	atktools "gitlab.ilabt.imec.be/lpdhooge/containercap/attack-tools"
 
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
@@ -18,15 +19,17 @@ var (
 
 func main() {
 	flag.Parse()
+	atks, _ := selectTools(*category, *tool)
+	scn := generateScenario()
 
 }
 
-func selectTools(category, name string) (map[atktools.AttackCommandBuilder]int, error) {
+func selectTools(category, tool string) (map[atktools.AttackCommandBuilder]int, error) {
 	var selection = map[atktools.AttackCommandBuilder]int{}
-	if category != "" && name != "" {
-		attacker := *atktools.SelectAttacker(category, name)
+	if category != "" && tool != "" {
+		attacker := *atktools.SelectAttacker(category, tool)
 		selection[attacker] = attacker.Weight()
-	} else if category != "" && name == "" {
+	} else if category != "" && tool == "" {
 		attackers := *atktools.SelectAttackers(category)
 		for _, v := range attackers {
 			selection[v] = v.Weight()
@@ -35,7 +38,10 @@ func selectTools(category, name string) (map[atktools.AttackCommandBuilder]int, 
 	return selection, nil
 }
 
-func generateScenario(scenarioType string) *scenario.Scenario {
+func generateScenario(typ scenario.ScenarioType) *scenario.Scenario {
 	S := scenario.Scenario{}
+	S.UUID = uuid.New()
+	S.ScenarioType = typ
+
 	return &S
 }

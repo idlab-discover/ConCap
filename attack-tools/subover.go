@@ -1,21 +1,33 @@
 package atktools
 
-import "math/rand"
+import (
+	"math/rand"
 
-type SubOver struct {
-	weight int
-	parts  []string
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+)
+
+type Subover struct {
+	scenarioType scenario.ScenarioType
+	weight       int
+	parts        []string
 }
 
-func (subover SubOver) BuildAtkCommand() []string {
+func NewSubover() Subover {
+	return Subover{weight: 1, scenarioType: scenario.Scanning}
+}
+
+func (subover Subover) BuildAtkCommand() []string {
 	subover.parts = []string{"subover", "-t 50"}
 	if rand.Float32() < 0.5 {
 		subover.parts = append(subover.parts, "-https")
 	}
-	subover.weight = 1
 	return subover.parts
 }
 
-func (subover SubOver) Weight() int {
+func (subover Subover) Weight() int {
 	return subover.weight
+}
+
+func (subover Subover) ScenarioType() scenario.ScenarioType {
+	return subover.scenarioType
 }

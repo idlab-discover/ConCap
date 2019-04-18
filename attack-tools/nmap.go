@@ -1,14 +1,19 @@
 package atktools
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+)
 
 type Nmap struct {
+	scenarioType                                                                    scenario.ScenarioType
 	weight                                                                          int
 	discovery, port, scanTypes, srvDetect, osDetect, timing, script, evasion, parts []string
 }
 
 func NewNmap() Nmap {
-	nmap := Nmap{}
+	nmap := Nmap{weight: 50, scenarioType: scenario.Scanning}
 	nmap.discovery = []string{"-sL", "-Pn", "-PU", "-PR"}
 	nmap.port = []string{"--top-ports 50", "--top-ports 100", "--top-ports 500", "--top-ports 1000", "--top-ports 2000", "-p-"}
 	nmap.scanTypes = []string{"-sS", "-sT", "-sU", "-sA", "-sW", "-sM"}
@@ -44,10 +49,13 @@ func (nmap Nmap) BuildAtkCommand() []string {
 	if rand.Float32() < 0.33 {
 		nmap.parts = append(nmap.parts, nmap.evasion[rand.Intn(len(nmap.evasion))])
 	}
-	nmap.weight = 50
 	return nmap.parts
 }
 
 func (nmap Nmap) Weight() int {
 	return nmap.weight
+}
+
+func (nmap Nmap) ScenarioType() scenario.ScenarioType {
+	return nmap.scenarioType
 }

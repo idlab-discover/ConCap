@@ -1,14 +1,19 @@
 package atktools
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+)
 
 type Topera struct {
+	scenarioType scenario.ScenarioType
 	weight       int
 	parts, modes []string
 }
 
 func NewTopera() Topera {
-	topera := Topera{}
+	topera := Topera{weight: 5, scenarioType: scenario.Scanning}
 	topera.modes = []string{"topera_tcp_scan", "topera_loris"}
 	return topera
 }
@@ -22,4 +27,8 @@ func (topera Topera) BuildAtkCommand() []string {
 
 func (topera Topera) Weight() int {
 	return topera.weight
+}
+
+func (topera Topera) ScenarioType() scenario.ScenarioType {
+	return topera.scenarioType
 }

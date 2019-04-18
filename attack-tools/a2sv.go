@@ -1,16 +1,20 @@
 package atktools
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+)
 
 type A2sv struct {
-	weight  int
-	parts   []string
-	modules []string
+	scenarioType scenario.ScenarioType
+	weight       int
+	parts        []string
+	modules      []string
 }
 
 func NewA2sv() A2sv {
-	a2sv := A2sv{}
-	a2sv.weight = 10
+	a2sv := A2sv{weight: 10, scenarioType: scenario.Scanning}
 	a2sv.modules = []string{"anonymous", "crime", "heart", "ccs", "poodle", "freak", "logjam", "drown"}
 	return a2sv
 }
@@ -23,4 +27,8 @@ func (a2sv A2sv) BuildAtkCommand() []string {
 
 func (a2sv A2sv) Weight() int {
 	return a2sv.weight
+}
+
+func (a2sv A2sv) ScenarioType() scenario.ScenarioType {
+	return a2sv.scenarioType
 }

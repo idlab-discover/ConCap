@@ -1,10 +1,19 @@
 package atktools
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+)
 
 type Cangibrina struct {
-	weight int
-	parts  []string
+	scenarioType scenario.ScenarioType
+	weight       int
+	parts        []string
+}
+
+func NewCangibrina() Cangibrina {
+	return Cangibrina{weight: 1, scenarioType: scenario.Scanning}
 }
 
 func (cangibrina Cangibrina) BuildAtkCommand() []string {
@@ -15,10 +24,13 @@ func (cangibrina Cangibrina) BuildAtkCommand() []string {
 	} else {
 		cangibrina.parts = append(cangibrina.parts, "-w /usr/share/cangibrina/wordlists/wl_big")
 	}
-	cangibrina.weight = 1
 	return cangibrina.parts
 }
 
 func (cangibrina Cangibrina) Weight() int {
 	return cangibrina.weight
+}
+
+func (cangibrina Cangibrina) ScenarioType() scenario.ScenarioType {
+	return cangibrina.scenarioType
 }

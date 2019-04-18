@@ -1,15 +1,19 @@
 package atktools
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+)
 
 type Amass struct {
+	scenarioType     scenario.ScenarioType
 	weight           int
 	parts, wordlists []string
 }
 
 func NewAmass() Amass {
-	amass := Amass{}
-	amass.weight = 25
+	amass := Amass{weight: 25, scenarioType: scenario.Scanning}
 	amass.wordlists = []string{
 		"/usr/share/amass/wordlists/all.txt",
 		"/usr/share/amass/wordlists/asnlist.txt",
@@ -42,4 +46,8 @@ func (amass Amass) BuildAtkCommand() []string {
 
 func (amass Amass) Weight() int {
 	return amass.weight
+}
+
+func (amass Amass) ScenarioType() scenario.ScenarioType {
+	return amass.scenarioType
 }

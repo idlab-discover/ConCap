@@ -1,8 +1,9 @@
 uuid: 66618215-19b2-4292-9582-26ab27619765
 startTime: 2019-04-02T13:46:30.262078579+02:00
 stopTime: 2019-04-02T13:46:39.727010354+02:00
+scenarioType: "scanning"
 attacker:
-  category: scanner
+  category: scanning
   name: zmap
   image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/zmap-scanner:v1.0.1
   atkCommand: zmap -T 50 -G 02:42:ac:11:00:08 -M udp -n 0.0001% -p 143 -t 115

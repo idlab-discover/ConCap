@@ -1,10 +1,19 @@
 package atktools
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+)
 
 type Verbal struct {
-	weight int
-	parts  []string
+	scenarioType scenario.ScenarioType
+	weight       int
+	parts        []string
+}
+
+func NewVerbal() Verbal {
+	return Verbal{weight: 1, scenarioType: scenario.Scanning}
 }
 
 func (verbal Verbal) BuildAtkCommand() []string {
@@ -14,10 +23,13 @@ func (verbal Verbal) BuildAtkCommand() []string {
 	} else {
 		verbal.parts = append(verbal.parts, "https://127.0.0.1")
 	}
-	verbal.weight = 1
 	return verbal.parts
 }
 
 func (verbal Verbal) Weight() int {
 	return verbal.weight
+}
+
+func (verbal Verbal) ScenarioType() scenario.ScenarioType {
+	return verbal.scenarioType
 }
