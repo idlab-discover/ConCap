@@ -19,12 +19,12 @@ var (
 
 func main() {
 	flag.Parse()
-	atks, _ := selectTools(*category, *tool)
+	selected, _ := selectTools(scenario.ScenarioType(*category), *tool)
 	scn := generateScenario()
 
 }
 
-func selectTools(category, tool string) (map[atktools.AttackCommandBuilder]int, error) {
+func selectTools(category scenario.ScenarioType, tool string) (map[atktools.AttackCommandBuilder]int, error) {
 	var selection = map[atktools.AttackCommandBuilder]int{}
 	if category != "" && tool != "" {
 		attacker := *atktools.SelectAttacker(category, tool)
@@ -38,10 +38,9 @@ func selectTools(category, tool string) (map[atktools.AttackCommandBuilder]int, 
 	return selection, nil
 }
 
-func generateScenario(typ scenario.ScenarioType) *scenario.Scenario {
+func generateScenario() *scenario.Scenario {
 	S := scenario.Scenario{}
 	S.UUID = uuid.New()
-	S.ScenarioType = typ
 
 	return &S
 }

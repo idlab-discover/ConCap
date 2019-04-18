@@ -15,8 +15,8 @@ var (
 	topDomains TopDomains
 )
 
-var attackers = map[string]map[string]AttackCommandBuilder{
-	"scanner": map[string]AttackCommandBuilder{},
+var attackers = map[scenario.ScenarioType]map[string]AttackCommandBuilder{
+	scenario.Scanning: map[string]AttackCommandBuilder{},
 }
 
 func init() {
@@ -30,7 +30,7 @@ type AttackCommandBuilder interface {
 	ScenarioType() scenario.ScenarioType
 }
 
-func fetchAttacker(category, name string) (*AttackCommandBuilder, error) {
+func fetchAttacker(category scenario.ScenarioType, name string) (*AttackCommandBuilder, error) {
 	if val, ok := attackers[category][name]; ok {
 		return &val, nil
 	} else {
@@ -90,7 +90,7 @@ func fetchAttacker(category, name string) (*AttackCommandBuilder, error) {
 	}
 }
 
-func SelectAttacker(category, name string) *AttackCommandBuilder {
+func SelectAttacker(category scenario.ScenarioType, name string) *AttackCommandBuilder {
 	val, err := fetchAttacker(category, name)
 	if err != nil {
 		log.Fatalln(err)
@@ -98,7 +98,7 @@ func SelectAttacker(category, name string) *AttackCommandBuilder {
 	return val
 }
 
-func SelectAttackers(category string) *map[string]AttackCommandBuilder {
+func SelectAttackers(category scenario.ScenarioType) *map[string]AttackCommandBuilder {
 	if val, found := attackers[category]; found {
 		return &val
 	}

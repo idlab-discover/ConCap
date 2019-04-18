@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	atktools "gitlab.ilabt.imec.be/lpdhooge/containercap/attack-tools"
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/ledger"
@@ -23,6 +24,10 @@ func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitG
 		log.Println("Couldn't read file", filename)
 	}
 	scn := scenario.ReadScenario(fh)
+	scn.UUID, err = uuid.Parse(strings.Split(filename, ".")[0])
+	if err != nil {
+		log.Println("File had incorrect UUID filename")
+	}
 	ledger.Register(scn)
 	scns <- scn
 	fmt.Println("loaded scenario onto channel")
@@ -46,7 +51,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
-			// scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
+			scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
 		} else {
 			fmt.Print("Check again\n")
 			time.Sleep(10 * time.Second)

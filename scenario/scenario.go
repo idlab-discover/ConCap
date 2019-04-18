@@ -63,9 +63,7 @@ func ReadScenario(r io.Reader) *Scenario {
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	S.UUID = uuid.New()
 	//fmt.Printf("Scenario struct %+v\n", S)
-
 	return &S
 }
 

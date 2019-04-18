@@ -1,7 +1,7 @@
 uuid: 6efa328e-625b-40ac-831f-d1d0945187f6
-startTime: 2019-04-02T13:46:30.263773747+02:00
-stopTime: 2019-04-02T13:46:39.490159779+02:00
-scenarioType: "scanning"
+scenarioType: scanning
+startTime: 2019-04-18T14:15:37.060901692+02:00
+stopTime: 2019-04-18T14:15:47.383951886+02:00
 attacker:
   category: scanning
   name: vulscan
