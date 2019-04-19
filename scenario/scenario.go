@@ -13,7 +13,7 @@ import (
 type ScenarioType string
 
 const (
-	Scanning   ScenarioType = "scanning"
+	Scanning   ScenarioType = "scan"
 	Exploit    ScenarioType = "exploit"
 	Bruteforce ScenarioType = "bruteforce"
 	Dos        ScenarioType = "dos"

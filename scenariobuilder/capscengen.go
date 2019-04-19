@@ -2,6 +2,7 @@ package scenariobuilder
 
 import (
 	"flag"
+	"strings"
 
 	"github.com/google/uuid"
 	atktools "gitlab.ilabt.imec.be/lpdhooge/containercap/attack-tools"
@@ -20,20 +21,26 @@ var (
 func main() {
 	flag.Parse()
 	selected, _ := selectTools(scenario.ScenarioType(*category), *tool)
+	for i := range selected {
+
+	}
 	scn := generateScenario()
 
 }
 
-func selectTools(category scenario.ScenarioType, tool string) (map[atktools.AttackCommandBuilder]int, error) {
-	var selection = map[atktools.AttackCommandBuilder]int{}
+func selectTools(category scenario.ScenarioType, tool string) ([]scenario.Attacker, error) {
+	var selection []scenario.Attacker
 	if category != "" && tool != "" {
 		attacker := *atktools.SelectAttacker(category, tool)
-		selection[attacker] = attacker.Weight()
+		selection = append(selection, scenario.Attacker{
+			Category:   category,
+			Name:       tool,
+			AtkCommand: strings.Join(attacker.BuildAtkCommand(), " "),
+		})
+
 	} else if category != "" && tool == "" {
 		attackers := *atktools.SelectAttackers(category)
-		for _, v := range attackers {
-			selection[v] = v.Weight()
-		}
+
 	}
 	return selection, nil
 }

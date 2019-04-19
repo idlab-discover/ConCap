@@ -34,7 +34,7 @@ func NewAmass() Amass {
 }
 
 func (amass Amass) BuildAtkCommand() []string {
-	amass.parts = []string{"amass -active -brute -include-unresolvable", "-ip", "-min-for-recursive 1", "-src", "-p 80,443,8080,8081,8443"}
+	amass.parts = []string{"amass", "-active -brute -include-unresolvable", "-ip", "-min-for-recursive 1", "-src", "-p 80,443,8080,8081,8443"}
 
 	if rand.Float32() < 0.5 {
 		amass.parts = append(amass.parts, "-w", amass.wordlists[rand.Intn(len(amass.wordlists))])
