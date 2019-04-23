@@ -1,0 +1,21 @@
+uuid: 1f8d7401-cfdc-4749-a403-8b57eeff2e1c
+scenarioType: ""
+startTime: 0001-01-01T00:00:00Z
+stopTime: 0001-01-01T00:00:00Z
+attacker:
+  category: scan
+  name: nmap
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap:latest
+  atkCommand: nmap localhost -sU --top-ports 100 -T3
+target:
+  category: webserver
+  name: tomcat
+  image: tomcat:latest
+  ports:
+  - 8081
+captureEngine:
+  name: tcpdump
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:latest
+  interface: lo
+  filter: ""
+tag: ""

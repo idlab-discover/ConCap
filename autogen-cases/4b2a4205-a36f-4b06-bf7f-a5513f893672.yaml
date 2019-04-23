@@ -1,0 +1,21 @@
+uuid: 4b2a4205-a36f-4b06-bf7f-a5513f893672
+scenarioType: ""
+startTime: 0001-01-01T00:00:00Z
+stopTime: 0001-01-01T00:00:00Z
+attacker:
+  category: scan
+  name: nmap
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/nmap:latest
+  atkCommand: nmap localhost -sS --top-ports 1000 -O -T3
+target:
+  category: webserver
+  name: nginx
+  image: nginx:1:12
+  ports:
+  - 80
+captureEngine:
+  name: tcpdump
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:latest
+  interface: lo
+  filter: ""
+tag: ""
