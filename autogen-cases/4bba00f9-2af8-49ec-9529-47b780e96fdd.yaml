@@ -1,7 +1,7 @@
 uuid: 4bba00f9-2af8-49ec-9529-47b780e96fdd
 scenarioType: ""
-startTime: 0001-01-01T00:00:00Z
-stopTime: 0001-01-01T00:00:00Z
+startTime: 2019-04-24T00:41:00.23674066+02:00
+stopTime: 2019-04-24T00:41:07.716202947+02:00
 attacker:
   category: scan
   name: nmap

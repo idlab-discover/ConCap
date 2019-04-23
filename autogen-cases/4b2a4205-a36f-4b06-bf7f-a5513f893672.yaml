@@ -1,7 +1,7 @@
 uuid: 4b2a4205-a36f-4b06-bf7f-a5513f893672
 scenarioType: ""
-startTime: 0001-01-01T00:00:00Z
-stopTime: 0001-01-01T00:00:00Z
+startTime: 2019-04-24T00:40:49.339386714+02:00
+stopTime: 2019-04-24T00:41:01.197391078+02:00
 attacker:
   category: scan
   name: nmap
@@ -10,7 +10,7 @@ attacker:
 target:
   category: webserver
   name: nginx
-  image: nginx:1:12
+  image: nginx:1.12
   ports:
   - 80
 captureEngine:
