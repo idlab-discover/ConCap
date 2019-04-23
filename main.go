@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	atktools "gitlab.ilabt.imec.be/lpdhooge/containercap/attack-tools"
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/ledger"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
@@ -18,7 +17,7 @@ import (
 
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	fh, err := os.Open("testcases/" + filename)
+	fh, err := os.Open("autogen-cases/" + filename)
 	defer fh.Close()
 	if err != nil {
 		log.Println("Couldn't read file", filename)
@@ -42,8 +41,8 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
 	for msg := range podStates {
 		if msg {
-			attacker := *atktools.SelectAttacker(scn.Attacker.Category, scn.Attacker.Name)
-			scn.Attacker.AtkCommand = strings.Join(attacker.BuildAtkCommand(), " ")
+			//attacker := *atktools.SelectAttacker(scn.Attacker.Category, scn.Attacker.Name)
+			//scn.Attacker.AtkCommand = strings.Join(attacker.BuildAtkCommand(), " ")
 			fmt.Println("launched: ", scn.Attacker.AtkCommand)
 			scn.StartTime = time.Now()
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "IN PROGRESS", Scenario: scn})
@@ -51,7 +50,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
-			scenario.WriteScenario(scn, "testcases/"+scn.UUID.String()+".yaml")
+			scenario.WriteScenario(scn, "autogen-cases/"+scn.UUID.String()+".yaml")
 		} else {
 			fmt.Print("Check again\n")
 			time.Sleep(10 * time.Second)
@@ -62,7 +61,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 
 func main() {
 	fmt.Println("Containercap")
-	files, err := ioutil.ReadDir("testcases")
+	files, err := ioutil.ReadDir("autogen-cases")
 	fmt.Println("Number of files read", len(files))
 	if err != nil {
 		log.Fatal(err)

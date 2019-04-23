@@ -21,7 +21,7 @@ var attackers = map[scenario.ScenarioType]map[string]AttackCommandBuilder{
 
 func init() {
 	topPorts = *NewTopPorts()
-	topDomains = *NewTopDomains("filtered-1m.list")
+	//topDomains = *NewTopDomains("filtered-1m.list")
 }
 
 type AttackCommandBuilder interface {
