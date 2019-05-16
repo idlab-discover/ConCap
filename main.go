@@ -13,7 +13,19 @@ import (
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/ledger"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
+	"go.uber.org/zap"
 )
+
+var sugar *zap.SugaredLogger
+
+func init() {
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer logger.Sync()
+	sugar = logger.Sugar()
+}
 
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -34,7 +46,7 @@ func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitG
 
 func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	podspec := scenario.PodTemplateBuilder(scn)
+	podspec := scenario.ScenarioPod(scn)
 	kubeapi.CreatePod(podspec)
 	ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "CREATED", Scenario: scn})
 	podStates := make(chan bool, 100)
@@ -59,6 +71,16 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	}
 }
 
+func flowProcessing() {
+	podspecJoy := scenario.FlowProcessPod("joy")
+	kubeapi.CreatePod(podspecJoy)
+	podspecCIC := scenario.FlowProcessPod("cicflowmeter")
+	kubeapi.CreatePod(podspecCIC)
+	podspecYaf := scenario.FlowProcessPod("yaf")
+	kubeapi.CreatePod(podspecYaf)
+
+}
+
 func main() {
 	fmt.Println("Containercap")
 	files, err := ioutil.ReadDir("autogen-cases")
@@ -78,6 +100,7 @@ func main() {
 			go loadScenarios(file.Name(), scenarios, &wgReadExp)
 		}
 		wgReadExp.Wait()
+		fmt.Printf("\033[2K\r")
 		ledger.Repr()
 	}()
 
@@ -86,6 +109,6 @@ func main() {
 		wgExecExp.Add(1)
 		go startScenario(scene, &wgExecExp)
 	}
-	fmt.Println("Waiting for wait group to end")
 	wgExecExp.Wait()
+
 }

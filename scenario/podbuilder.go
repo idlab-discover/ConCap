@@ -12,15 +12,13 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// func AssembleTemplate() *apiv1.Pod
-
-func PodTemplateBuilder(scn *Scenario) *apiv1.Pod {
+func ScenarioPod(scn *Scenario) *apiv1.Pod {
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scn.UUID.String(),
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
-				"containercap": "storage",
+				"containercap": "default-pod",
 			},
 		},
 		Spec: apiv1.PodSpec{
@@ -50,7 +48,7 @@ func PodTemplateBuilder(scn *Scenario) *apiv1.Pod {
 					Image:   scn.CaptureEngine.Image,
 					Stdin:   true,
 					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/var/h-captures/" + scn.UUID.String() + ".pcap"},
+					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/var/pv-captures/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
@@ -60,15 +58,15 @@ func PodTemplateBuilder(scn *Scenario) *apiv1.Pod {
 					},
 					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:      "hostpath-store",
-							MountPath: "/var/h-captures",
+							Name:      "hostpath-captures",
+							MountPath: "/var/pv-captures",
 						},
 					},
 				},
 			},
 			Volumes: []apiv1.Volume{
 				{
-					Name: "hostpath-store",
+					Name: "hostpath-captures",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
 							Path: "/hosthome/dhoogla/Documents/PhD/pv-captures",
@@ -79,6 +77,60 @@ func PodTemplateBuilder(scn *Scenario) *apiv1.Pod {
 		},
 	}
 
+	return pod
+}
+
+func FlowProcessPod(name string) *apiv1.Pod {
+	pod := &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      RandStringRunes(8),
+			Namespace: apiv1.NamespaceDefault,
+			Labels: map[string]string{
+				"containercap": "capture-processing",
+			},
+		},
+		Spec: apiv1.PodSpec{
+			ImagePullSecrets: []apiv1.LocalObjectReference{
+				{Name: "idlab-gitlab"},
+			},
+			Containers: []apiv1.Container{
+				{
+					Name:  name,
+					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/" + name + ":latest",
+					Stdin: true,
+					TTY:   true,
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "hostpath-captures",
+							MountPath: "/var/pv-captures",
+						},
+						{
+							Name:      "hostpath-processed",
+							MountPath: "/var/pv-processed",
+						},
+					},
+				},
+			},
+			Volumes: []apiv1.Volume{
+				{
+					Name: "hostpath-captures",
+					VolumeSource: apiv1.VolumeSource{
+						HostPath: &apiv1.HostPathVolumeSource{
+							Path: "/hosthome/dhoogla/Documents/PhD/pv-captures",
+						},
+					},
+				},
+				{
+					Name: "hostpath-processed",
+					VolumeSource: apiv1.VolumeSource{
+						HostPath: &apiv1.HostPathVolumeSource{
+							Path: "/hosthome/dhoogla/Documents/PhD/pv-processed",
+						},
+					},
+				},
+			},
+		},
+	}
 	return pod
 }
 
