@@ -36,6 +36,10 @@ func Count() int {
 	return ledger.Count()
 }
 
+func Keys() []string {
+	return ledger.Keys()
+}
+
 func Dump() {
 	for i := range ledger.IterBuffered() {
 		pp.Printf("%+v\n", i)

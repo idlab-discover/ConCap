@@ -69,7 +69,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					Name: "hostpath-captures",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/Documents/PhD/containercap-captures",
+							Path: "/hosthome/dhoogla/PhD/containercap-captures",
 						},
 					},
 				},
@@ -102,11 +102,11 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "hostpath-captures",
-							MountPath: "/var/containercap-captures",
+							MountPath: "/tmp/containercap-captures",
 						},
 						{
 							Name:      "hostpath-transformed",
-							MountPath: "/var/containercap-transformed",
+							MountPath: "/tmp/containercap-transformed",
 						},
 					},
 				},
@@ -116,7 +116,7 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					Name: "hostpath-captures",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/Documents/PhD/containercap-captures",
+							Path: "/hosthome/dhoogla/PhD/containercap-captures",
 						},
 					},
 				},
@@ -124,7 +124,7 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					Name: "hostpath-transformed",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/Documents/PhD/containercap-transformed",
+							Path: "/hosthome/dhoogla/PhD/containercap-transformed",
 						},
 					},
 				},

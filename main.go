@@ -53,8 +53,6 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
 	for msg := range podStates {
 		if msg {
-			//attacker := *atktools.SelectAttacker(scn.Attacker.Category, scn.Attacker.Name)
-			//scn.Attacker.AtkCommand = strings.Join(attacker.BuildAtkCommand(), " ")
 			fmt.Println("launched: ", scn.Attacker.AtkCommand)
 			scn.StartTime = time.Now()
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "IN PROGRESS", Scenario: scn})
@@ -71,12 +69,14 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 }
 
 func joyProcessing(scenarioUUID string) {
+	fmt.Println("JOY: received order for ", scenarioUUID)
 	kubeapi.ExecShellInContainer("default", "joy", "joy",
-		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 "+scenarioUUID+"	> /tmp/containercap-transformed/"+scenarioUUID+".joy")
+		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 "+"/tmp/containercap-captures/"+scenarioUUID+".pcap"+" > /tmp/containercap-transformed/"+scenarioUUID+".joy")
 }
 
 func cicProcessing(scenarioUUID string) {
-	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /tmp/containercap-captures/"+scenarioUUID+" /tmp/containercap-transformed/"+scenarioUUID)
+	fmt.Println("CIC: received order for ", scenarioUUID)
+	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /tmp/containercap-captures/"+scenarioUUID+".pcap"+" /tmp/containercap-transformed/")
 }
 
 func main() {
@@ -91,18 +91,19 @@ func main() {
 	files, err := ioutil.ReadDir("/home/dhoogla/PhD/containercap-scenarios/")
 	fmt.Println("Number of files read", len(files))
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		return
 	}
 
-	scenarios := make(chan *scenario.Scenario, len(files))
+	scenariosChan := make(chan *scenario.Scenario, len(files))
 
 	go func() {
-		defer close(scenarios)
+		defer close(scenariosChan)
 		var wgReadExp sync.WaitGroup
 		for _, file := range files {
 			wgReadExp.Add(1)
 			fmt.Println("Fx:", file.Name())
-			go loadScenarios(file.Name(), scenarios, &wgReadExp)
+			go loadScenarios(file.Name(), scenariosChan, &wgReadExp)
 		}
 		wgReadExp.Wait()
 		ledger.Repr()
@@ -110,37 +111,40 @@ func main() {
 
 	// fmt.Printf("\033[2K\r")
 	var wgExecExp sync.WaitGroup
-	for scene := range scenarios {
+	for scene := range scenariosChan {
 		wgExecExp.Add(1)
 		go startScenario(scene, &wgExecExp)
 	}
 	wgExecExp.Wait()
 
 	var wgProcessing sync.WaitGroup
+	scenarios := ledger.Keys()
 	wgProcessing.Add(2)
 	go func() {
-		for scene := range scenarios {
-			joyProcessing(scene.UUID.String())
+		defer wgProcessing.Done()
+		for _, scene := range scenarios {
+			joyProcessing(scene)
 		}
 	}()
 
 	go func() {
-		for scene := range scenarios {
-			cicProcessing(scene.UUID.String())
+		defer wgProcessing.Done()
+		for _, scene := range scenarios {
+			cicProcessing(scene)
 		}
 	}()
 	wgProcessing.Wait()
 
 	var wgBundle sync.WaitGroup
-	for scene := range scenarios {
+	for _, scn := range scenarios {
 		wgBundle.Add(1)
-		go func(sc *scenario.Scenario) {
-			uuid := sc.UUID.String()
+		go func(scene string) {
+			defer wgBundle.Done()
 			errs := [4]error{}
-			_, errs[0] = os.Stat("/home/dhoogla/PhD/containercap-scenarios/" + uuid + ".yaml")
-			_, errs[1] = os.Stat("/home/dhoogla/PhD/containercap-captures/" + uuid + ".pcap")
-			_, errs[2] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + uuid + ".pcap_Flow.csv")
-			_, errs[3] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + uuid + ".joy")
+			_, errs[0] = os.Stat("/home/dhoogla/PhD/containercap-scenarios/" + scene + ".yaml")
+			_, errs[1] = os.Stat("/home/dhoogla/PhD/containercap-captures/" + scene + ".pcap")
+			_, errs[2] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + scene + ".pcap_Flow.csv")
+			_, errs[3] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + scene + ".joy")
 
 			for i, err := range errs {
 				if err != nil {
@@ -149,14 +153,14 @@ func main() {
 				}
 			}
 
-			if err := os.MkdirAll("/home/dhoogla/PhD/containercap-completed/"+uuid, os.ModeDir); err != nil {
-				errs[0] = os.Rename("/home/dhoogla/PhD/containercap-scenarios/"+uuid+".yaml", "/home/dhoogla/PhD/containercap-completed/"+uuid+"/"+uuid+".yaml")
-				errs[1] = os.Rename("/home/dhoogla/PhD/containercap-scenarios/"+uuid+".pcap", "/home/dhoogla/PhD/containercap-completed/"+uuid+"/"+uuid+".pcap")
-				errs[2] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+uuid+".pcap_Flow.csv", "/home/dhoogla/PhD/containercap-completed/"+uuid+"/"+uuid+".pcap_Flow.csv")
-				errs[3] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+uuid+".joy", "/home/dhoogla/PhD/containercap-completed/"+uuid+"/"+uuid+".joy")
-			} else {
+			if err := os.MkdirAll("/home/dhoogla/PhD/containercap-completed/"+scene, 0700); err != nil {
 				fmt.Println(err.Error())
 				return
+			} else {
+				errs[0] = os.Rename("/home/dhoogla/PhD/containercap-scenarios/"+scene+".yaml", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".yaml")
+				errs[1] = os.Rename("/home/dhoogla/PhD/containercap-captures/"+scene+".pcap", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".pcap")
+				errs[2] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+scene+".pcap_Flow.csv", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
+				errs[3] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+scene+".joy", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".joy")
 			}
 
 			for i, err := range errs {
@@ -165,8 +169,8 @@ func main() {
 					return
 				}
 			}
-			fmt.Println("Completed bundling for scenario => ", uuid)
-		}(scene)
+			fmt.Println("Completed bundling for scenario => ", scene)
+		}(scn)
 
 	}
 	wgBundle.Wait()
