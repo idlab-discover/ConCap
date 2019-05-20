@@ -48,7 +48,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					Image:   scn.CaptureEngine.Image,
 					Stdin:   true,
 					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/var/pv-captures/" + scn.UUID.String() + ".pcap"},
+					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/tmp/containercap-captures/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
@@ -59,7 +59,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "hostpath-captures",
-							MountPath: "/var/pv-captures",
+							MountPath: "/tmp/containercap-captures",
 						},
 					},
 				},
@@ -69,7 +69,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					Name: "hostpath-captures",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/Documents/PhD/pv-captures",
+							Path: "/hosthome/dhoogla/Documents/PhD/containercap-captures",
 						},
 					},
 				},
@@ -83,10 +83,10 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 func FlowProcessPod(name string) *apiv1.Pod {
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RandStringRunes(8),
+			Name:      name,
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
-				"containercap": "capture-processing",
+				"containercap": "processing-pod",
 			},
 		},
 		Spec: apiv1.PodSpec{
@@ -102,11 +102,11 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "hostpath-captures",
-							MountPath: "/var/pv-captures",
+							MountPath: "/var/containercap-captures",
 						},
 						{
-							Name:      "hostpath-processed",
-							MountPath: "/var/pv-processed",
+							Name:      "hostpath-transformed",
+							MountPath: "/var/containercap-transformed",
 						},
 					},
 				},
@@ -116,15 +116,15 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					Name: "hostpath-captures",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/Documents/PhD/pv-captures",
+							Path: "/hosthome/dhoogla/Documents/PhD/containercap-captures",
 						},
 					},
 				},
 				{
-					Name: "hostpath-processed",
+					Name: "hostpath-transformed",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/Documents/PhD/pv-processed",
+							Path: "/hosthome/dhoogla/Documents/PhD/containercap-transformed",
 						},
 					},
 				},
