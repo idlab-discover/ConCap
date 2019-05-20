@@ -29,7 +29,7 @@ func init() {
 
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	fh, err := os.Open("/home/dhoogla/PhD/containercap-scenarios" + filename)
+	fh, err := os.Open("/home/dhoogla/PhD/containercap-scenarios/" + filename)
 	defer fh.Close()
 	if err != nil {
 		log.Println("Couldn't read file", filename)
@@ -81,12 +81,14 @@ func cicProcessing(scenarioUUID string) {
 
 func main() {
 	fmt.Println("Containercap")
+	defer kubeapi.DeletePod("joy")
+	defer kubeapi.DeletePod("cicflowmeter")
 	podspecJoy := scenario.FlowProcessPod("joy")
 	kubeapi.CreatePod(podspecJoy)
 	podspecCIC := scenario.FlowProcessPod("cicflowmeter")
 	kubeapi.CreatePod(podspecCIC)
 
-	files, err := ioutil.ReadDir("autogen-cases")
+	files, err := ioutil.ReadDir("/home/dhoogla/PhD/containercap-scenarios/")
 	fmt.Println("Number of files read", len(files))
 	if err != nil {
 		log.Fatal(err)
