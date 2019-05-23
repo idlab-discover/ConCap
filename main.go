@@ -71,7 +71,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 func joyProcessing(scenarioUUID string) {
 	fmt.Println("JOY: received order for ", scenarioUUID)
 	kubeapi.ExecShellInContainer("default", "joy", "joy",
-		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 "+"/tmp/containercap-captures/"+scenarioUUID+".pcap"+" > /tmp/containercap-transformed/"+scenarioUUID+".joy")
+		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 "+"/tmp/containercap-captures/"+scenarioUUID+".pcap"+" | gunzip > /tmp/containercap-transformed/"+scenarioUUID+".joy.json")
 }
 
 func cicProcessing(scenarioUUID string) {
@@ -144,7 +144,7 @@ func main() {
 			_, errs[0] = os.Stat("/home/dhoogla/PhD/containercap-scenarios/" + scene + ".yaml")
 			_, errs[1] = os.Stat("/home/dhoogla/PhD/containercap-captures/" + scene + ".pcap")
 			_, errs[2] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + scene + ".pcap_Flow.csv")
-			_, errs[3] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + scene + ".joy")
+			_, errs[3] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + scene + ".joy.json")
 
 			for i, err := range errs {
 				if err != nil {
@@ -160,7 +160,7 @@ func main() {
 				errs[0] = os.Rename("/home/dhoogla/PhD/containercap-scenarios/"+scene+".yaml", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".yaml")
 				errs[1] = os.Rename("/home/dhoogla/PhD/containercap-captures/"+scene+".pcap", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".pcap")
 				errs[2] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+scene+".pcap_Flow.csv", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
-				errs[3] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+scene+".joy", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".joy")
+				errs[3] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+scene+".joy.json", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".joy.json")
 			}
 
 			for i, err := range errs {
