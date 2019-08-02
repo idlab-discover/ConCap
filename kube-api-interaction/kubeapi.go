@@ -1,7 +1,6 @@
 package kubeapi
 
 import (
-	"flag"
 	"fmt"
 	"path/filepath"
 
@@ -21,14 +20,9 @@ var kubeClient kubernetes.Clientset
 var podsClient v1.PodInterface
 
 func init() {
-	var kubeconfig *string
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-	flag.Parse()
-	kubeConf, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	var kubeconfig string
+	kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+	kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err)
 	}

@@ -1,18 +1,29 @@
 package scenario
 
 import (
+	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var Local bool
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
 func ScenarioPod(scn *Scenario) *apiv1.Pod {
+	var path string
+	if Local {
+		path = "/hosthome/dhoogla"
+	} else {
+		path = os.Getenv("HOME")
+	}
+
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scn.UUID.String(),
@@ -69,7 +80,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					Name: "hostpath-captures",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/PhD/containercap-captures",
+							Path: path + "/PhD/containercap-captures",
 						},
 					},
 				},
@@ -81,6 +92,13 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 }
 
 func FlowProcessPod(name string) *apiv1.Pod {
+	var path string
+	if Local {
+		path = "/hosthome/dhoogla"
+	} else {
+		path = os.Getenv("HOME")
+	}
+	fmt.Println(path)
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -116,7 +134,7 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					Name: "hostpath-captures",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/PhD/containercap-captures",
+							Path: path + "/PhD/containercap-captures",
 						},
 					},
 				},
@@ -124,7 +142,7 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					Name: "hostpath-transformed",
 					VolumeSource: apiv1.VolumeSource{
 						HostPath: &apiv1.HostPathVolumeSource{
-							Path: "/hosthome/dhoogla/PhD/containercap-transformed",
+							Path: path + "/PhD/containercap-transformed",
 						},
 					},
 				},

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,6 +19,9 @@ import (
 
 var sugar *zap.SugaredLogger
 
+var home string
+var local *bool
+
 func init() {
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -25,11 +29,13 @@ func init() {
 	}
 	defer logger.Sync()
 	sugar = logger.Sugar()
+	local = flag.Bool("local", false, "Local execution (minikube) or not?")
+	home = os.Getenv("HOME")
 }
 
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	fh, err := os.Open("/home/dhoogla/PhD/containercap-scenarios/" + filename)
+	fh, err := os.Open(home + "/PhD/containercap-scenarios/" + filename)
 	defer fh.Close()
 	if err != nil {
 		log.Println("Couldn't read file", filename)
@@ -60,7 +66,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
-			scenario.WriteScenario(scn, "/home/dhoogla/Phd/containercap-scenarios/"+scn.UUID.String()+".yaml")
+			scenario.WriteScenario(scn, home+"/Phd/containercap-scenarios/"+scn.UUID.String()+".yaml")
 		} else {
 			time.Sleep(10 * time.Second)
 			go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
@@ -80,6 +86,9 @@ func cicProcessing(scenarioUUID string) {
 }
 
 func main() {
+	flag.Parse()
+	scenario.Local = *local
+	fmt.Println("local", *local, "scenario.Local", scenario.Local)
 	fmt.Println("Containercap")
 	defer kubeapi.DeletePod("joy")
 	defer kubeapi.DeletePod("cicflowmeter")
@@ -88,7 +97,7 @@ func main() {
 	podspecCIC := scenario.FlowProcessPod("cicflowmeter")
 	kubeapi.CreatePod(podspecCIC)
 
-	files, err := ioutil.ReadDir("/home/dhoogla/PhD/containercap-scenarios/")
+	files, err := ioutil.ReadDir(home + "/PhD/containercap-scenarios/")
 	fmt.Println("Number of files read", len(files))
 	if err != nil {
 		log.Println(err.Error())
@@ -141,10 +150,10 @@ func main() {
 		go func(scene string) {
 			defer wgBundle.Done()
 			errs := [4]error{}
-			_, errs[0] = os.Stat("/home/dhoogla/PhD/containercap-scenarios/" + scene + ".yaml")
-			_, errs[1] = os.Stat("/home/dhoogla/PhD/containercap-captures/" + scene + ".pcap")
-			_, errs[2] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + scene + ".pcap_Flow.csv")
-			_, errs[3] = os.Stat("/home/dhoogla/PhD/containercap-transformed/" + scene + ".joy.json")
+			_, errs[0] = os.Stat(home + "/PhD/containercap-scenarios/" + scene + ".yaml")
+			_, errs[1] = os.Stat(home + "/PhD/containercap-captures/" + scene + ".pcap")
+			_, errs[2] = os.Stat(home + "/PhD/containercap-transformed/" + scene + ".pcap_Flow.csv")
+			_, errs[3] = os.Stat(home + "/PhD/containercap-transformed/" + scene + ".joy.json")
 
 			for i, err := range errs {
 				if err != nil {
@@ -157,10 +166,10 @@ func main() {
 				fmt.Println(err.Error())
 				return
 			} else {
-				errs[0] = os.Rename("/home/dhoogla/PhD/containercap-scenarios/"+scene+".yaml", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".yaml")
-				errs[1] = os.Rename("/home/dhoogla/PhD/containercap-captures/"+scene+".pcap", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".pcap")
-				errs[2] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+scene+".pcap_Flow.csv", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
-				errs[3] = os.Rename("/home/dhoogla/PhD/containercap-transformed/"+scene+".joy.json", "/home/dhoogla/PhD/containercap-completed/"+scene+"/"+scene+".joy.json")
+				errs[0] = os.Rename(home+"/PhD/containercap-scenarios/"+scene+".yaml", home+"/containercap-completed/"+scene+"/"+scene+".yaml")
+				errs[1] = os.Rename(home+"/PhD/containercap-captures/"+scene+".pcap", home+"/containercap-completed/"+scene+"/"+scene+".pcap")
+				errs[2] = os.Rename(home+"/PhD/containercap-transformed/"+scene+".pcap_Flow.csv", home+"/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
+				errs[3] = os.Rename(home+"/PhD/containercap-transformed/"+scene+".joy.json", home+"/containercap-completed/"+scene+"/"+scene+".joy.json")
 			}
 
 			for i, err := range errs {
