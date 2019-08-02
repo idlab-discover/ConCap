@@ -88,7 +88,6 @@ func cicProcessing(scenarioUUID string) {
 func main() {
 	flag.Parse()
 	scenario.Local = *local
-	fmt.Println("local", *local, "scenario.Local", scenario.Local)
 	fmt.Println("Containercap")
 	defer kubeapi.DeletePod("joy")
 	defer kubeapi.DeletePod("cicflowmeter")
@@ -162,14 +161,14 @@ func main() {
 				}
 			}
 
-			if err := os.MkdirAll("/home/dhoogla/PhD/containercap-completed/"+scene, 0700); err != nil {
+			if err := os.MkdirAll(home+"/PhD/containercap-completed/"+scene, 0700); err != nil {
 				fmt.Println(err.Error())
 				return
 			} else {
-				errs[0] = os.Rename(home+"/PhD/containercap-scenarios/"+scene+".yaml", home+"/containercap-completed/"+scene+"/"+scene+".yaml")
-				errs[1] = os.Rename(home+"/PhD/containercap-captures/"+scene+".pcap", home+"/containercap-completed/"+scene+"/"+scene+".pcap")
-				errs[2] = os.Rename(home+"/PhD/containercap-transformed/"+scene+".pcap_Flow.csv", home+"/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
-				errs[3] = os.Rename(home+"/PhD/containercap-transformed/"+scene+".joy.json", home+"/containercap-completed/"+scene+"/"+scene+".joy.json")
+				errs[0] = os.Rename(home+"/PhD/containercap-scenarios/"+scene+".yaml", home+"/PhD/containercap-completed/"+scene+"/"+scene+".yaml")
+				errs[1] = os.Rename(home+"/PhD/containercap-captures/"+scene+".pcap", home+"/PhD/containercap-completed/"+scene+"/"+scene+".pcap")
+				errs[2] = os.Rename(home+"/PhD/containercap-transformed/"+scene+".pcap_Flow.csv", home+"/PhD/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
+				errs[3] = os.Rename(home+"/PhD/containercap-transformed/"+scene+".joy.json", home+"/PhD/containercap-completed/"+scene+"/"+scene+".joy.json")
 			}
 
 			for i, err := range errs {

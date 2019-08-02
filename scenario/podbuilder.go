@@ -20,6 +20,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 	var path string
 	if Local {
 		path = "/hosthome/dhoogla"
+		fmt.Println("Storing results in ", path+"/PhD/containercap-captures")
 	} else {
 		path = os.Getenv("HOME")
 	}
