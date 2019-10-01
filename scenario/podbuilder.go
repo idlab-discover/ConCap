@@ -23,6 +23,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 		fmt.Println("Storing results in ", path+"/PhD/containercap-captures")
 	} else {
 		path = os.Getenv("HOME")
+		fmt.Println("Storing results in ", path+"/PhD/containercap-captures")
 	}
 
 	pod := &apiv1.Pod{
