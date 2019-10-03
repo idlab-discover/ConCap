@@ -71,7 +71,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					},
 					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:      "hostpath-captures",
+							Name:      "nfs-captures",
 							MountPath: "/tmp/containercap-captures",
 						},
 					},
@@ -79,10 +79,11 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 			},
 			Volumes: []apiv1.Volume{
 				{
-					Name: "hostpath-captures",
+					Name: "nfs-captures",
 					VolumeSource: apiv1.VolumeSource{
-						HostPath: &apiv1.HostPathVolumeSource{
-							Path: path + "/PhD/containercap-captures",
+						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc-nfs",
+							ReadOnly:  false,
 						},
 					},
 				},
@@ -121,11 +122,11 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					TTY:   true,
 					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:      "hostpath-captures",
+							Name:      "nfs-captures",
 							MountPath: "/tmp/containercap-captures",
 						},
 						{
-							Name:      "hostpath-transformed",
+							Name:      "nfs-transformed",
 							MountPath: "/tmp/containercap-transformed",
 						},
 					},
@@ -133,18 +134,20 @@ func FlowProcessPod(name string) *apiv1.Pod {
 			},
 			Volumes: []apiv1.Volume{
 				{
-					Name: "hostpath-captures",
+					Name: "nfs-captures",
 					VolumeSource: apiv1.VolumeSource{
-						HostPath: &apiv1.HostPathVolumeSource{
-							Path: path + "/PhD/containercap-captures",
+						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc-nfs",
+							ReadOnly:  false,
 						},
 					},
 				},
 				{
-					Name: "hostpath-transformed",
+					Name: "nfs-transformed",
 					VolumeSource: apiv1.VolumeSource{
-						HostPath: &apiv1.HostPathVolumeSource{
-							Path: path + "/PhD/containercap-transformed",
+						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc-nfs",
+							ReadOnly:  false,
 						},
 					},
 				},
