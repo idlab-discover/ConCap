@@ -1,31 +1,18 @@
 package scenario
 
 import (
-	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var Local bool
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
 func ScenarioPod(scn *Scenario) *apiv1.Pod {
-	var path string
-	if Local {
-		path = "/hosthome/dhoogla"
-		fmt.Println("Storing results in ", path+"/PhD/containercap-captures")
-	} else {
-		path = os.Getenv("HOME")
-		fmt.Println("Storing results in ", path+"/PhD/containercap-captures")
-	}
-
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scn.UUID.String(),
@@ -61,7 +48,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					Image:   scn.CaptureEngine.Image,
 					Stdin:   true,
 					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/tmp/containercap-captures/" + scn.UUID.String() + ".pcap"},
+					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/mnt/containercap-captures/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
@@ -71,15 +58,15 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					},
 					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:      "nfs-captures",
-							MountPath: "/tmp/containercap-captures",
+							Name:      "nfs-volume",
+							MountPath: "/mnt",
 						},
 					},
 				},
 			},
 			Volumes: []apiv1.Volume{
 				{
-					Name: "nfs-captures",
+					Name: "nfs-volume",
 					VolumeSource: apiv1.VolumeSource{
 						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "pvc-nfs",
@@ -95,13 +82,6 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 }
 
 func FlowProcessPod(name string) *apiv1.Pod {
-	var path string
-	if Local {
-		path = "/hosthome/dhoogla"
-	} else {
-		path = os.Getenv("HOME")
-	}
-	fmt.Println(path)
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -122,28 +102,15 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					TTY:   true,
 					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:      "nfs-captures",
-							MountPath: "/tmp/containercap-captures",
-						},
-						{
-							Name:      "nfs-transformed",
-							MountPath: "/tmp/containercap-transformed",
+							Name:      "nfs-volume",
+							MountPath: "/mnt",
 						},
 					},
 				},
 			},
 			Volumes: []apiv1.Volume{
 				{
-					Name: "nfs-captures",
-					VolumeSource: apiv1.VolumeSource{
-						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "pvc-nfs",
-							ReadOnly:  false,
-						},
-					},
-				},
-				{
-					Name: "nfs-transformed",
+					Name: "nfs-volume",
 					VolumeSource: apiv1.VolumeSource{
 						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "pvc-nfs",
