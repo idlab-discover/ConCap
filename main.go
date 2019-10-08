@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -58,11 +57,6 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			fmt.Println("launched: ", scn.Attacker.AtkCommand)
 			scn.StartTime = time.Now()
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "IN PROGRESS", Scenario: scn})
-
-			buf := bufio.NewReader(os.Stdin)
-			fmt.Print("> ")
-			buf.ReadBytes('\n')
-
 			kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
@@ -160,6 +154,18 @@ func main() {
 					return
 				}
 			}
+
+			// errs[0] = os.Chown("/mnt/containercap-scenarios/"+scene+".yaml", 1000, 1000)
+			// errs[1] = os.Chown("/mnt/containercap-captures/"+scene+".pcap", 1000, 1000)
+			// errs[2] = os.Chown("/mnt/containercap-transformed/"+scene+".pcap_Flow.csv", 1000, 1000)
+			// errs[3] = os.Chown("/mnt/containercap-transformed/"+scene+".joy.json", 1000, 1000)
+
+			// for i, err := range errs {
+			// 	if err != nil {
+			// 		fmt.Println(errs[i].Error())
+			// 		return
+			// 	}
+			// }
 
 			if err := os.MkdirAll("/mnt/containercap-completed/"+scene, 0700); err != nil {
 				fmt.Println(err.Error())
