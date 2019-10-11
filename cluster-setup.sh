@@ -1,10 +1,13 @@
 #! /usr/bin/zsh
 
-# Export nfs?
-# sudo export exportfs -rav
+# Prepare the nfs server
+# echo "/storage/nfs *(rw,insecure,sync,no_subtree_check,no_root_squash)" | sudo tee /etc/exports
+
+# Export nfs
+# sudo exportfs -rav
 
 # Create Kubernetes cluster through kubernetes in docker
-kind create cluster --config kind-example-config.yaml
+# kind create cluster --config kind-example-config.yaml
 
 # Create PersistentVolume and PersistentVolumeClaim
 kubectl create -f pv-nfs.yaml

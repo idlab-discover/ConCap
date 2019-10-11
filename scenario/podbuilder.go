@@ -48,7 +48,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					Image:   scn.CaptureEngine.Image,
 					Stdin:   true,
 					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/mnt/containercap-captures/" + scn.UUID.String() + ".pcap"},
+					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/mnt/L/kube/containercap-captures/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{

@@ -13,4 +13,4 @@ spec:
     - ReadWriteMany
   nfs:
     server: "172.18.104.110"
-    path: "/storage/nfs/kube"
+    path: "/storage/nfs"

@@ -18,6 +18,7 @@ import (
 )
 
 var sugar *zap.SugaredLogger
+var mountLoc string
 
 func init() {
 	logger, err := zap.NewProduction()
@@ -26,11 +27,14 @@ func init() {
 	}
 	defer logger.Sync()
 	sugar = logger.Sugar()
+	flag.StringVar(&mountLoc, "m", "/mnt/L/kube/", "The mount path on the host")
+	// on the live kube cluster this flag will be /groups/wall2-ilabt-iminds-be/cybersecurity/L/kube/
+	flag.Parse()
 }
 
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	fh, err := os.Open("/mnt/containercap-scenarios/" + filename)
+	fh, err := os.Open(mountLoc + "containercap-scenarios/" + filename)
 	defer fh.Close()
 	if err != nil {
 		log.Println("Couldn't read file", filename)
@@ -61,7 +65,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
-			scenario.WriteScenario(scn, "/mnt/containercap-scenarios/"+scn.UUID.String()+".yaml")
+			scenario.WriteScenario(scn, mountLoc+"containercap-scenarios/"+scn.UUID.String()+".yaml")
 		} else {
 			time.Sleep(10 * time.Second)
 			go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
@@ -72,12 +76,12 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 func joyProcessing(scenarioUUID string) {
 	fmt.Println("JOY: received order for ", scenarioUUID)
 	kubeapi.ExecShellInContainer("default", "joy", "joy",
-		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 "+"/mnt/containercap-captures/"+scenarioUUID+".pcap"+" | gunzip > /mnt/containercap-transformed/"+scenarioUUID+".joy.json")
+		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 "+"/mnt/L/kube/containercap-captures/"+scenarioUUID+".pcap"+" | gunzip > /mnt/L/kube/containercap-transformed/"+scenarioUUID+".joy.json")
 }
 
 func cicProcessing(scenarioUUID string) {
 	fmt.Println("CIC: received order for ", scenarioUUID)
-	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /mnt/containercap-captures/"+scenarioUUID+".pcap"+" /mnt/containercap-transformed/")
+	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /mnt/L/kube/containercap-captures/"+scenarioUUID+".pcap"+" /mnt/L/kube/containercap-transformed/")
 }
 
 func main() {
@@ -90,7 +94,7 @@ func main() {
 	podspecCIC := scenario.FlowProcessPod("cicflowmeter")
 	kubeapi.CreatePod(podspecCIC)
 
-	files, err := ioutil.ReadDir("/mnt/containercap-scenarios/")
+	files, err := ioutil.ReadDir(mountLoc + "containercap-scenarios/")
 	fmt.Println("Number of files read", len(files))
 	if err != nil {
 		log.Println(err.Error())
@@ -143,10 +147,10 @@ func main() {
 		go func(scene string) {
 			defer wgBundle.Done()
 			errs := [4]error{}
-			_, errs[0] = os.Stat("/mnt/containercap-scenarios/" + scene + ".yaml")
-			_, errs[1] = os.Stat("/mnt/containercap-captures/" + scene + ".pcap")
-			_, errs[2] = os.Stat("/mnt/containercap-transformed/" + scene + ".pcap_Flow.csv")
-			_, errs[3] = os.Stat("/mnt/containercap-transformed/" + scene + ".joy.json")
+			_, errs[0] = os.Stat(mountLoc + "containercap-scenarios/" + scene + ".yaml")
+			_, errs[1] = os.Stat(mountLoc + "containercap-captures/" + scene + ".pcap")
+			_, errs[2] = os.Stat(mountLoc + "containercap-transformed/" + scene + ".pcap_Flow.csv")
+			_, errs[3] = os.Stat(mountLoc + "containercap-transformed/" + scene + ".joy.json")
 
 			for i, err := range errs {
 				if err != nil {
@@ -155,26 +159,14 @@ func main() {
 				}
 			}
 
-			// errs[0] = os.Chown("/mnt/containercap-scenarios/"+scene+".yaml", 1000, 1000)
-			// errs[1] = os.Chown("/mnt/containercap-captures/"+scene+".pcap", 1000, 1000)
-			// errs[2] = os.Chown("/mnt/containercap-transformed/"+scene+".pcap_Flow.csv", 1000, 1000)
-			// errs[3] = os.Chown("/mnt/containercap-transformed/"+scene+".joy.json", 1000, 1000)
-
-			// for i, err := range errs {
-			// 	if err != nil {
-			// 		fmt.Println(errs[i].Error())
-			// 		return
-			// 	}
-			// }
-
-			if err := os.MkdirAll("/mnt/containercap-completed/"+scene, 0700); err != nil {
+			if err := os.MkdirAll(mountLoc+"containercap-completed/"+scene, 0700); err != nil {
 				fmt.Println(err.Error())
 				return
 			} else {
-				errs[0] = os.Rename("/mnt/containercap-scenarios/"+scene+".yaml", "/mnt/containercap-completed/"+scene+"/"+scene+".yaml")
-				errs[1] = os.Rename("/mnt/containercap-captures/"+scene+".pcap", "/mnt/containercap-completed/"+scene+"/"+scene+".pcap")
-				errs[2] = os.Rename("/mnt/containercap-transformed/"+scene+".pcap_Flow.csv", "/mnt/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
-				errs[3] = os.Rename("/mnt/containercap-transformed/"+scene+".joy.json", "/mnt/containercap-completed/"+scene+"/"+scene+".joy.json")
+				errs[0] = os.Rename(mountLoc+"containercap-scenarios/"+scene+".yaml", mountLoc+"containercap-completed/"+scene+"/"+scene+".yaml")
+				errs[1] = os.Rename(mountLoc+"containercap-captures/"+scene+".pcap", mountLoc+"containercap-completed/"+scene+"/"+scene+".pcap")
+				errs[2] = os.Rename(mountLoc+"containercap-transformed/"+scene+".pcap_Flow.csv", mountLoc+"containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
+				errs[3] = os.Rename(mountLoc+"containercap-transformed/"+scene+".joy.json", mountLoc+"containercap-completed/"+scene+"/"+scene+".joy.json")
 			}
 
 			for i, err := range errs {
