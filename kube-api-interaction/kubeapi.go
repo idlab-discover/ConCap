@@ -21,7 +21,10 @@ var podsClient v1.PodInterface
 
 func init() {
 	var kubeconfig string
-	kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+	// kubadm install
+	// kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+	// local kind cluster
+	kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "kind-config-kind")
 	kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err)

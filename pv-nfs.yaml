@@ -5,12 +5,16 @@ metadata:
   labels:
     type: local
 spec:
-  storageClassName: manual
+  storageClassName: nfs
   persistentVolumeReclaimPolicy: Retain
   capacity:
-    storage: 10Gi
+    storage: 100Gi
+  volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
+  mountOptions:
+    - hard
+    - nfsvers=4.1
   nfs:
-    server: "172.18.104.110"
-    path: "/storage/nfs"
+    server: "192.168.0.207"
+    path: "/storage/nfs/kube"

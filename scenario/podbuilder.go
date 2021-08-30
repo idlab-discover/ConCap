@@ -36,6 +36,8 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 							ContainerPort: scn.Target.Ports[0],
 						},
 					},
+					// Stdin: true,
+					// TTY:   true,
 				},
 				{
 					Name:  scn.Attacker.Name,
@@ -48,11 +50,11 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					Image:   scn.CaptureEngine.Image,
 					Stdin:   true,
 					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/mnt/L/kube/containercap-captures/" + scn.UUID.String() + ".pcap"},
+					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/mnt/containercap-captures/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
-								Command: []string{"/bin/bash", "-c", "kill -15 $(ps aux | grep \"[t]cpdump\" | tr -s \" \" | cut -d \" \" -f 1)"},
+								Command: []string{"/bin/sh", "-c", "kill -15 $(ps aux | grep \"[t]cpdump\" | tr -s \" \" | cut -d \" \" -f 2)"},
 							},
 						},
 					},

@@ -7,7 +7,7 @@
 # sudo exportfs -rav
 
 # Create Kubernetes cluster through kubernetes in docker
-# kind create cluster --config kind-example-config.yaml
+kind create cluster --config kind-example-config.yaml
 
 # Create PersistentVolume and PersistentVolumeClaim
 kubectl create -f pv-nfs.yaml
