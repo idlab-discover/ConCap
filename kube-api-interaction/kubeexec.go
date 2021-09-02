@@ -57,6 +57,7 @@ func ExecWithOptions(options ExecOptions) (string, string, error) {
 
 // ExecCommandInContainerWithFullOutput executes a command in the
 // specified container and return stdout, stderr and error
+// this is basically kube exec at the api level
 func ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName string, cmd ...string) (string, string, error) {
 	return ExecWithOptions(ExecOptions{
 		Command:       cmd,
@@ -78,10 +79,14 @@ func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...str
 	return stdout
 }
 
+// ExecShellInContainer will use sh to launch a specific command in the container.
+// This is used in main
 func ExecShellInContainer(nameSpace, podName, containerName, cmd string) string {
 	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
 }
 
+// execute is used internally, to wrap the commands in SPDY.
+// SPDY is deprecated as a protocol, so this may have to change if kubenetes drops it
 func execute(method string, url *url.URL, config *rest.Config, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {
 	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
 	if err != nil {

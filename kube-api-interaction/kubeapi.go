@@ -1,3 +1,5 @@
+// Package kubeapi is our main interface on top of the Kubernetes API
+// Currently, we directly control Pods. Alternatively we may opt for the Kubernetes Job abstraction if it provides enough low-level access today
 package kubeapi
 
 import (
@@ -19,6 +21,7 @@ var kubeConfig *rest.Config
 var kubeClient kubernetes.Clientset
 var podsClient v1.PodInterface
 
+// init for the kubeapi will get the kubeconfig and create a new clientset from which the a pod api is instantiated
 func init() {
 	var kubeconfig string
 	// kubadm install
@@ -38,6 +41,7 @@ func init() {
 	podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
 }
 
+// CreatePod invokes the kubernetes API to create a pod
 func CreatePod(pod *apiv1.Pod) {
 	// Create Deployment
 	fmt.Println("Creating pod...")
@@ -48,6 +52,8 @@ func CreatePod(pod *apiv1.Pod) {
 	fmt.Printf("Created pod %q.\n", result.GetObjectMeta().GetName())
 }
 
+// UpdatePod can changes pod options / attributes
+// Currently, this funciton is not used, because we instantiate the pods fully for single uses
 func UpdatePod() {
 	fmt.Println("Updating pod...")
 	//    You have two options to Update() this Deployment:
@@ -81,6 +87,8 @@ func UpdatePod() {
 	fmt.Println("Updated pod...")
 }
 
+// ListPod wraps around the kube api pod listing function
+// The listoptions are part of kubernetes meta
 func ListPod() {
 	// List Deployments
 	fmt.Printf("Listing pods in namespace %q:\n", apiv1.NamespaceDefault)
@@ -93,6 +101,8 @@ func ListPod() {
 	}
 }
 
+// DeletePod wraps around the kube api pod deletion call
+// the deleteoptions are part of kubernetes meta
 func DeletePod(name string) {
 	// Delete Deployment
 	fmt.Println("Deleting pod...")
@@ -106,6 +116,7 @@ func DeletePod(name string) {
 
 }
 
+// WatchPod gets the current event chain and prints the info
 func WatchPod() {
 	fmt.Println("Watching pods...")
 	watch, err := podsClient.Watch(metav1.ListOptions{Watch: true})
@@ -118,6 +129,7 @@ func WatchPod() {
 	}
 }
 
+// CheckPodStatus is a wrapper around get which uses the Phase part of the Status to signal to the lifecycle part in main if the pod is running and ready to accept an order
 func CheckPodStatus(name string, results chan<- bool) {
 	pod, err := podsClient.Get(name, metav1.GetOptions{})
 	if err != nil {

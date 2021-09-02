@@ -12,6 +12,11 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// ScenarioPod takes a Scenario specification and turns it into a pod
+// In the current implementation one pod = one experiment and one experiment is one invocation of an attack tool against one target
+// All required metadata and containers are part of this one pod
+// This trick also allows running tools on 127.0.0.1 because the containers in the pod share the same network
+// The redesign will decouple this for flexiblity and resource efficiency reasons
 func ScenarioPod(scn *Scenario) *apiv1.Pod {
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -46,14 +51,16 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					TTY:   true,
 				},
 				{
-					Name:    scn.CaptureEngine.Name,
-					Image:   scn.CaptureEngine.Image,
+					Name:  scn.CaptureEngine.Name,
+					Image: scn.CaptureEngine.Image,
+					// The Stdin and TTY fields are important for debugging purposes, without them, you can't access the containers through kubectl
 					Stdin:   true,
 					TTY:     true,
 					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/mnt/containercap-captures/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
+								// This trick allows a clean exit of tcpdump, without the pcaps are often corrupted or not saved at all
 								Command: []string{"/bin/sh", "-c", "kill -15 $(ps aux | grep \"[t]cpdump\" | tr -s \" \" | cut -d \" \" -f 2)"},
 							},
 						},
@@ -83,6 +90,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 	return pod
 }
 
+// FlowProcessPod is the api pod constructor for feature processing pods (currently iscxflowmeter & cisco joy). We will include more tools such as argus and other netflow tools
 func FlowProcessPod(name string) *apiv1.Pod {
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -128,6 +136,7 @@ func FlowProcessPod(name string) *apiv1.Pod {
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
 
+// RandStringRunes is a small helper function to create random n-length strings from the smallcap letterRunes
 func RandStringRunes(n int) string {
 	b := make([]rune, n)
 	for i := range b {
