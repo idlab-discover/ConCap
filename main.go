@@ -20,6 +20,11 @@ import (
 var sugar *zap.SugaredLogger
 var mountLoc string
 
+// the init function of main will
+// instantiate the sugared version of the Zap logger (https://github.com/uber-go/zap)
+// I recommend using zap, but logging in this project is currently not used much and certainly not consistently
+// (re)set the mount location for the persistent storage
+// parse the other flags
 func init() {
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -32,6 +37,8 @@ func init() {
 	flag.Parse()
 }
 
+// loadScenarios will read scenarios from disk and put their Scenario representation in a channel
+// this function is not exported and it is used as a goroutine for parallel & async scenario loading
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
 	fh, err := os.Open(mountLoc + "/containercap-scenarios/" + filename)
@@ -49,6 +56,11 @@ func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitG
 	fmt.Println("loaded scenario onto channel")
 }
 
+// startScenario will interface with our wrappers around the k8s api to
+// It also shows how the ledger is intended to be used.
+// Through the api, the pod status is checked once every 10s through a goroutine
+// If a pod's containers are all ready, then the attack command is executed
+// When the attack finishes, the pod is cleaned up and the scenario is amended to include the exact stop time
 func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
 	podspec := scenario.ScenarioPod(scn)
@@ -62,7 +74,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			scn.StartTime = time.Now()
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "IN PROGRESS", Scenario: scn})
 			kubeapi.ExecShellInContainer("default", scn.UUID.String(), scn.Attacker.Name, scn.Attacker.AtkCommand)
-			// kubeapi.DeletePod(scn.UUID.String())
+			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
 			scenario.WriteScenario(scn, mountLoc+"/containercap-scenarios/"+scn.UUID.String()+".yaml")
@@ -73,17 +85,37 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	}
 }
 
+// joyProcessing is called after an experiment pod with scenarioUUID is done to extract features from the captured .pcap file
+// it sends the command to the long-living joy container
+// the shell argument is very specific and should not be modified
 func joyProcessing(scenarioUUID string) {
 	fmt.Println("JOY: received order for ", scenarioUUID)
 	kubeapi.ExecShellInContainer("default", "joy", "joy",
 		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 /mnt/containercap-captures/"+scenarioUUID+".pcap"+" | gunzip > /mnt/containercap-transformed/"+scenarioUUID+".joy.json")
 }
 
+// cicProcessing is called after an experiment pod with scenarioUUID is done to extract features from the captured .pcap file
+// it sends the command to the long-living joy container
+// the shell argument should not be modified
 func cicProcessing(scenarioUUID string) {
 	fmt.Println("CIC: received order for ", scenarioUUID)
 	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /mnt/containercap-captures/"+scenarioUUID+".pcap /mnt/containercap-transformed/")
 }
 
+// main ties everything together
+// 0. flag parsing
+// 1. setup and teardown (at function end with defer) of the long-living feature processing pods
+// 2. reading a folder which contains all new scenario (experiment) YAML definitions
+//    this includes a trick with an anonymous go routine to load the scenarios asynchronously
+//    the pods are not created here just yet, only the scenario specs
+// 3. start all scenarios in separate goroutines, startScenario(), defined earlier will poll and run when everything is ready, then clean itself up
+// 4. after all scenarios are done, start feature processing in 2 goroutines that are started simultaneously for CICFlowmeter and Joy, however both tools churn through the scenario pcaps one by one.
+//    this may be scaled so that there are multiple flow processing pods for CICFlowmeter and Joy
+// 5. 4 checks happen, scenario yaml, scenario pcap, CICFlowmeter CSV and Joy JSON should be present for the experiment. These are the bundled in their own folder and moved to the other completed scenarios
+//    this indexing is basic, because the folders are UUIDs, a better implementation would leverage the currently available metadata (attack type, attack tool, ...) to store the results in a better structure
+//    we will probably add a NoSQL database to store and later publish finished experiments
+// NOTE: currently there are several synchronization points i.e. WaitGroup instance.Wait()
+// These can probably be relaxed, especially the sync point to complete all scenario runs before processing pcaps into features
 func main() {
 	flag.Parse()
 	fmt.Println("Containercap")

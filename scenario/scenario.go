@@ -1,3 +1,6 @@
+// Package scenario handles our scenario specification through a number of structs.
+// It also contains the podbuilder which fills in the Kubernetes templates for pods with the appropriate information
+// These scenario files are exported to yaml and serve as the starting point of every experiment
 package scenario
 
 import (
@@ -52,6 +55,7 @@ type CaptureEngine struct {
 	Filter    string
 }
 
+// ReadScenario will unmarshall the yaml back into the in-memory Scenario representation
 func ReadScenario(r io.Reader) *Scenario {
 	S := Scenario{}
 	b, err := ioutil.ReadAll(r)
@@ -67,6 +71,7 @@ func ReadScenario(r io.Reader) *Scenario {
 	return &S
 }
 
+// WriteScenario will marshall the in-memory Scenario to valid yaml and write it to disk
 func WriteScenario(s *Scenario, f string) error {
 	b, err := yaml.Marshal(s)
 	if err != nil {

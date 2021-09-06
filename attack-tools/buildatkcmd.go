@@ -83,13 +83,14 @@ func fetchAttacker(category scenario.ScenarioType, name string) (*AttackCommandB
 		case "zmap":
 			a = NewZmap()
 		default:
-			return nil, errors.New("Attacker not recognized")
+			return nil, errors.New("attacker not recognized")
 		}
 		attackers[category][name] = a
 		return &a, nil
 	}
 }
 
+// SelectAttacker returns a configured instance of an included attack tool
 func SelectAttacker(category scenario.ScenarioType, name string) *AttackCommandBuilder {
 	val, err := fetchAttacker(category, name)
 	if err != nil {
@@ -98,6 +99,7 @@ func SelectAttacker(category scenario.ScenarioType, name string) *AttackCommandB
 	return val
 }
 
+// SelectAttackers will select the tool names of an entire attack category
 func SelectAttackers(category scenario.ScenarioType) *map[string]AttackCommandBuilder {
 	if val, found := attackers[category]; found {
 		return &val
@@ -109,6 +111,10 @@ type TopDomains struct {
 	domains []string
 }
 
+// NewTopDomains is just a helper function for now, but we may opt to run some attack tools against public infrastructure.
+// This will probably end up in the YAML scenariobuilder
+// So far this has not been used, because it is dangerous and typically not allowed
+// Still, it may be the only way to obtain truly realistic data
 func NewTopDomains(domainlist string) *TopDomains {
 	file, err := os.Open(domainlist)
 	if err != nil {
@@ -137,6 +143,8 @@ type TopPorts struct {
 	UDP []uint32
 }
 
+// NewTopPorts is just a helper function for now
+// This will probably get refactored into the scenariobuilder
 func NewTopPorts() *TopPorts {
 	return &TopPorts{
 		TCP: []uint32{7, 9, 13, 21, 22, 23, 25, 26, 37, 53, 79, 80, 81, 88, 106, 110, 111, 113, 119, 135, 139, 143, 144, 179, 199, 389, 427, 443, 444, 445, 465, 513, 514, 515, 543, 544, 548, 554, 587, 631, 646, 873, 990, 993, 995, 1025, 1026, 1027, 1028, 1029, 1110, 1433, 1720, 1723, 1755, 1900, 2000, 2001, 2049, 2121, 2717, 3000, 3128, 3306, 3389, 3986, 4899, 5000, 5009, 5051, 5060, 5101, 5190, 5357, 5432, 5631, 5666, 5800, 5900, 6000, 6001, 6646, 7070, 8000, 8008, 8009, 8080, 8081, 8443, 8888, 9100, 9999, 10000, 32768, 49152, 49153, 49154, 49155, 49156, 49157},

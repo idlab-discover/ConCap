@@ -1,3 +1,7 @@
+// Package ledger is a very basic start to do bookkeeping in a concurrent map of experiment / pod states
+// This may be scrapped entirely in favor of standard kubernetes tooling
+// It currently has no impact on the functionality of containercap
+// The objective is to access / use the ledger from a simple terminal UI
 package ledger
 
 import (
