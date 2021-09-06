@@ -3,8 +3,10 @@
 package kubeapi
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/k0kubun/pp"
 	apiv1 "k8s.io/api/core/v1"
@@ -23,11 +25,10 @@ var podsClient v1.PodInterface
 
 // init for the kubeapi will get the kubeconfig and create a new clientset from which the a pod api is instantiated
 func init() {
-	var kubeconfig string
 	// kubadm install
 	// kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
 	// local kind cluster
-	kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "kind-config-kind")
+	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "kind-config-kind")
 	kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err)
@@ -45,7 +46,9 @@ func init() {
 func CreatePod(pod *apiv1.Pod) {
 	// Create Deployment
 	fmt.Println("Creating pod...")
-	result, err := podsClient.Create(pod)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	result, err := podsClient.Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -72,17 +75,21 @@ func UpdatePod() {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		result, getErr := podsClient.Get("demo-pod", metav1.GetOptions{})
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		result, getErr := podsClient.Get(ctx, "demo-pod", metav1.GetOptions{})
 		if getErr != nil {
-			panic(fmt.Errorf("Failed to get latest version of pod: %v", getErr))
+			panic(fmt.Errorf("failed to get latest version of pod: %v", getErr))
 		}
 
 		result.Spec.Containers[0].Image = "nginx:1.13" // change nginx version
-		_, updateErr := podsClient.Update(result)
+		ctxu, cancelu := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancelu()
+		_, updateErr := podsClient.Update(ctxu, result, metav1.UpdateOptions{})
 		return updateErr
 	})
 	if retryErr != nil {
-		panic(fmt.Errorf("Update failed: %v", retryErr))
+		panic(fmt.Errorf("update failed: %v", retryErr))
 	}
 	fmt.Println("Updated pod...")
 }
@@ -92,7 +99,9 @@ func UpdatePod() {
 func ListPod() {
 	// List Deployments
 	fmt.Printf("Listing pods in namespace %q:\n", apiv1.NamespaceDefault)
-	list, err := podsClient.List(metav1.ListOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	list, err := podsClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -107,7 +116,9 @@ func DeletePod(name string) {
 	// Delete Deployment
 	fmt.Println("Deleting pod...")
 	deletePolicy := metav1.DeletePropagationForeground
-	if err := podsClient.Delete(name, &metav1.DeleteOptions{
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := podsClient.Delete(ctx, name, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}); err != nil {
 		panic(err)
@@ -119,7 +130,9 @@ func DeletePod(name string) {
 // WatchPod gets the current event chain and prints the info
 func WatchPod() {
 	fmt.Println("Watching pods...")
-	watch, err := podsClient.Watch(metav1.ListOptions{Watch: true})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	watch, err := podsClient.Watch(ctx, metav1.ListOptions{Watch: true})
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +144,9 @@ func WatchPod() {
 
 // CheckPodStatus is a wrapper around get which uses the Phase part of the Status to signal to the lifecycle part in main if the pod is running and ready to accept an order
 func CheckPodStatus(name string, results chan<- bool) {
-	pod, err := podsClient.Get(name, metav1.GetOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	pod, err := podsClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -147,5 +162,5 @@ func CheckPodStatus(name string, results chan<- bool) {
 	}
 }
 
-func int32Ptr(i int32) *int32                                          { return &i }
-func modePtr(s apiv1.MountPropagationMode) *apiv1.MountPropagationMode { return &s }
+// func int32Ptr(i int32) *int32 { return &i }
+// func modePtr(s apiv1.MountPropagationMode) *apiv1.MountPropagationMode { return &s }
