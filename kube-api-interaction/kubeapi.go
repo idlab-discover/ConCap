@@ -26,9 +26,9 @@ var podsClient v1.PodInterface
 // init for the kubeapi will get the kubeconfig and create a new clientset from which the a pod api is instantiated
 func init() {
 	// kubadm install
-	// kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
 	// local kind cluster
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "kind-config-kind")
+	// kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "kind-config-kind")
 	kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err)
