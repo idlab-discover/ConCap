@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jessevdk/go-flags"
+
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/ledger"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
@@ -18,20 +19,23 @@ import (
 )
 
 var sugar *zap.SugaredLogger
-var mountLoc string
 var once sync.Once
 
-var flagstore *Options
-
-type Options struct {
-	Mount string `short:"m" long:"mountloc" description:"The mount path on the host"`
+type FlagStore struct {
+	MountLoc string `short:"m" description:"The mount path on the host"`
 }
 
-// func GetFlagStore() *Options {
-// 	once.Do(func() {
-// 		flagstore = flags.
-// 	})
-// }
+var flagstore FlagStore
+
+func GetFlags() FlagStore {
+	once.Do(func() {
+		_, err := flags.Parse(&flagstore)
+		if err != nil {
+			panic(err)
+		}
+	})
+	return flagstore
+}
 
 // the init function of main will
 // instantiate the sugared version of the Zap logger (https://github.com/uber-go/zap)
@@ -45,20 +49,17 @@ func init() {
 	}
 	defer logger.Sync()
 	sugar = logger.Sugar()
-	flag.StringVar(&mountLoc, "m", "/mnt/L/kube", "The mount path on the host")
-	// on the live kube cluster this flag will be /groups/wall2-ilabt-iminds-be/cybersecurity/L/kube/
-	flag.Parse()
 }
 
 // loadScenarios will read scenarios from disk and put their Scenario representation in a channel
 // this function is not exported and it is used as a goroutine for parallel & async scenario loading
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	fh, err := os.Open(mountLoc + "/containercap-scenarios/" + filename)
-	defer fh.Close()
+	fh, err := os.Open(GetFlags().MountLoc + "/containercap-scenarios/" + filename)
 	if err != nil {
 		log.Println("Couldn't read file", filename)
 	}
+	defer fh.Close()
 	scn := scenario.ReadScenario(fh)
 	scn.UUID, err = uuid.Parse(strings.Split(filename, ".")[0])
 	if err != nil {
@@ -90,7 +91,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
-			scenario.WriteScenario(scn, mountLoc+"/containercap-scenarios/"+scn.UUID.String()+".yaml")
+			scenario.WriteScenario(scn, GetFlags().MountLoc+"/containercap-scenarios/"+scn.UUID.String()+".yaml")
 		} else {
 			time.Sleep(10 * time.Second)
 			go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
@@ -130,7 +131,8 @@ func cicProcessing(scenarioUUID string) {
 // NOTE: currently there are several synchronization points i.e. WaitGroup instance.Wait()
 // These can probably be relaxed, especially the sync point to complete all scenario runs before processing pcaps into features
 func main() {
-	flag.Parse()
+	// flag.Parse()
+	fmt.Println(GetFlags().MountLoc)
 	fmt.Println("Containercap")
 	defer kubeapi.DeletePod("joy")
 	defer kubeapi.DeletePod("cicflowmeter")
@@ -140,6 +142,8 @@ func main() {
 	kubeapi.CreatePod(podspecCIC)
 
 	time.Sleep(2 * time.Second)
+
+	var mountLoc = GetFlags().MountLoc
 
 	files, err := ioutil.ReadDir(mountLoc + "/containercap-scenarios/")
 	fmt.Println("Number of files read", len(files))
@@ -159,10 +163,8 @@ func main() {
 			go loadScenarios(file.Name(), scenariosChan, &wgReadExp)
 		}
 		wgReadExp.Wait()
-		ledger.Repr()
 	}()
 
-	// fmt.Printf("\033[2K\r")
 	var wgExecExp sync.WaitGroup
 	for scene := range scenariosChan {
 		wgExecExp.Add(1)

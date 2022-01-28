@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/k0kubun/pp"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -106,7 +105,7 @@ func ListPod() {
 		panic(err)
 	}
 	for k, d := range list.Items {
-		pp.Printf(" %d %+v \n", k, d.Status.ContainerStatuses)
+		fmt.Printf(" %d %+v \n", k, d.Status.ContainerStatuses)
 	}
 }
 

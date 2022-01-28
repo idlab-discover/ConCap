@@ -6,52 +6,46 @@ package ledger
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
-	"github.com/k0kubun/pp"
-	cmap "github.com/orcaman/concurrent-map"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
-var ledger cmap.ConcurrentMap
+var ledger sync.Map
+
+type ScenarioState string
+
+const (
+	DECLARED  ScenarioState = "declared"
+	STARTING  ScenarioState = "starting"
+	RUNNING   ScenarioState = "running"
+	COMPLETED ScenarioState = "completed"
+	ERROR     ScenarioState = "error"
+)
 
 type LedgerEntry struct {
-	State    string
+	State    ScenarioState
 	Scenario *scenario.Scenario
 }
 
-func init() {
-	ledger = cmap.New()
-}
-
 func Register(scn *scenario.Scenario) {
-	ledger.Set(scn.UUID.String(), LedgerEntry{State: "DECLARED", Scenario: scn})
+	ledger.Store(scn.UUID.String(), LedgerEntry{State: DECLARED, Scenario: scn})
 }
 
 func UpdateState(uuid string, le LedgerEntry) {
-	ledger.Set(uuid, le)
+	ledger.Store(uuid, le)
 }
 
 func Unregister(uuid uuid.UUID) {
-	ledger.Remove(uuid.String())
-}
-
-func Count() int {
-	return ledger.Count()
+	ledger.Delete(uuid.String())
 }
 
 func Keys() []string {
-	return ledger.Keys()
-}
-
-func Dump() {
-	for i := range ledger.IterBuffered() {
-		pp.Printf("%+v\n", i)
-	}
-}
-
-func Repr() {
-	for i := range ledger.IterBuffered() {
-		fmt.Printf("%+v\n", i)
-	}
+	m := []string{}
+	ledger.Range(func(key interface{}, value interface{}) bool {
+		m = append(m, fmt.Sprint(key))
+		return true
+	})
+	return m
 }
