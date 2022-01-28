@@ -3,7 +3,7 @@
 # Install the kubernetes components, follow the instructions for your OS
 
 # Kube host 
-sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --control-plane-endpoint localhost:6443 --upload-certs
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address 1.1.1.1 --upload-certs
 
 # Any preflight checks that fail should be addressed, just read them
 # They may be missing dependencies / kubelet service which is not auto-started yet by systemd / swap partition which is still on / ...
@@ -76,6 +76,8 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 # Without this you would not be able to schedule pods on the master
 kubectl taint nodes --all node-role.kubernetes.io/master-
 
+
+# Openvswitch migration https://github.com/k-vswitch/k-vswitch#installation
 # I've chosen flannel for pod networking, but there are lots of options
 # WARNING: you may have to install flannel-cni separately first, before it can be applied within Kubernetes
 kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml

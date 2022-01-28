@@ -19,6 +19,19 @@ import (
 
 var sugar *zap.SugaredLogger
 var mountLoc string
+var once sync.Once
+
+var flagstore *Options
+
+type Options struct {
+	Mount string `short:"m" long:"mountloc" description:"The mount path on the host"`
+}
+
+// func GetFlagStore() *Options {
+// 	once.Do(func() {
+// 		flagstore = flags.
+// 	})
+// }
 
 // the init function of main will
 // instantiate the sugared version of the Zap logger (https://github.com/uber-go/zap)

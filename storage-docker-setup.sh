@@ -4,7 +4,7 @@
 # WARNING: you only have to do this once, you can just write this line inside /etc/exports
 # the no_root_squash is a workaround so that the containers are allowed to write on the share
 # NOTE: we will move towards working with POD's security-context to pre-specify which user will write
-echo "/storage/nfs/kube *(rw,insecure,sync,no_subtree_check,no_root_squash)" | sudo tee /etc/exports
+echo "/storage/nfs/L/kube *(rw,insecure,sync,no_subtree_check,no_root_squash)" | sudo tee /etc/exports
 
 # Export nfs, better option is to make use of the systemd startup for nfs-server.service
 # sudo exportfs -rav
@@ -34,7 +34,7 @@ kubectl create secret generic idlab-gitlab --from-file=.dockerconfigjson=/home/d
 # 	"auths": {
 # 		"gitlab.ilabt.imec.be:4567": {
 # 			"auth": "[username:password]encoded in base64"
-# 		}
+# 		}x
 # 	},
 # 	"HttpHeaders": {
 # 		"User-Agent": "Docker-Client/20.10.8 (linux)"
