@@ -105,7 +105,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 func joyProcessing(scenarioUUID string) {
 	fmt.Println("JOY: received order for ", scenarioUUID)
 	kubeapi.ExecShellInContainer("default", "joy", "joy",
-		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 /mnt/containercap-captures/"+scenarioUUID+".pcap"+" | gunzip > /mnt/containercap-transformed/"+scenarioUUID+".joy.json")
+		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 /storage/nfs/L/kube/containercap-captures/"+scenarioUUID+".pcap"+" | gunzip > /storage/nfs/L/kube/containercap-transformed/"+scenarioUUID+".joy.json")
 }
 
 // cicProcessing is called after an experiment pod with scenarioUUID is done to extract features from the captured .pcap file
@@ -113,7 +113,7 @@ func joyProcessing(scenarioUUID string) {
 // the shell argument should not be modified
 func cicProcessing(scenarioUUID string) {
 	fmt.Println("CIC: received order for ", scenarioUUID)
-	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /mnt/containercap-captures/"+scenarioUUID+".pcap /mnt/containercap-transformed/")
+	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /storage/nfs/L/kube/containercap-captures/"+scenarioUUID+".pcap /storage/nfs/L/kube/containercap-transformed/")
 }
 
 // main ties everything together

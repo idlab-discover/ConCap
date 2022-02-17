@@ -56,7 +56,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					// The Stdin and TTY fields are important for debugging purposes, without them, you can't access the containers through kubectl
 					Stdin:   true,
 					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/mnt/containercap-captures/" + scn.UUID.String() + ".pcap"},
+					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/storage/nfs/L/kube/containercap-captures/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
@@ -68,7 +68,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "nfs-volume",
-							MountPath: "/mnt",
+							MountPath: "/storage/nfs/L/kube",
 						},
 					},
 				},
@@ -113,7 +113,7 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "nfs-volume",
-							MountPath: "/mnt",
+							MountPath: "/storage/nfs/L/kube",
 						},
 					},
 				},
