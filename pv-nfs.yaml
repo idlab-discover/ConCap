@@ -16,5 +16,5 @@ spec:
     - hard
     - nfsvers=4.1
   nfs:
-    server: "1.1.1.1"
+    server: "10.10.131.44"
     path: "/storage/nfs/L/kube"
