@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -21,8 +22,18 @@ import (
 var sugar *zap.SugaredLogger
 var once sync.Once
 
+type scnMeta struct {
+	inputDir     string
+	outputDir    string
+	captureDir   string
+	transformDir string
+}
+
+var scnMap = map[string]*scnMeta{}
+
 type FlagStore struct {
-	MountLoc string `short:"m" description:"The mount path on the host"`
+	MountLoc  string `short:"m" description:"The mount path on the host"`
+	Selection string `short:"s" description:"The selection of the scenario's to run, default=all" optional:"true" default:"all"`
 }
 
 var flagstore FlagStore
@@ -55,7 +66,8 @@ func init() {
 // this function is not exported and it is used as a goroutine for parallel & async scenario loading
 func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	fh, err := os.Open(GetFlags().MountLoc + "/containercap-scenarios/" + filename)
+
+	fh, err := os.Open(scnMap[filename].inputDir + "/" + filename + ".yaml")
 	if err != nil {
 		log.Println("Couldn't read file", filename)
 	}
@@ -77,7 +89,11 @@ func loadScenarios(filename string, scns chan *scenario.Scenario, wg *sync.WaitG
 // When the attack finishes, the pod is cleaned up and the scenario is amended to include the exact stop time
 func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
-	podspec := scenario.ScenarioPod(scn)
+
+	os.MkdirAll(scnMap[scn.UUID.String()].transformDir, 0777)
+	os.MkdirAll(scnMap[scn.UUID.String()].captureDir, 0777)
+
+	podspec := scenario.ScenarioPod(scn, scnMap[scn.UUID.String()].captureDir)
 	kubeapi.CreatePod(podspec)
 	ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "CREATED", Scenario: scn})
 	podStates := make(chan bool, 64)
@@ -91,7 +107,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			kubeapi.DeletePod(scn.UUID.String())
 			ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: "COMPLETED", Scenario: scn})
 			scn.StopTime = time.Now()
-			scenario.WriteScenario(scn, GetFlags().MountLoc+"/containercap-scenarios/"+scn.UUID.String()+".yaml")
+			scenario.WriteScenario(scn, scnMap[scn.UUID.String()].inputDir+"/"+scn.UUID.String()+".yaml")
 		} else {
 			time.Sleep(10 * time.Second)
 			go kubeapi.CheckPodStatus(scn.UUID.String(), podStates)
@@ -104,8 +120,8 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 // the shell argument is very specific and should not be modified
 func joyProcessing(scenarioUUID string) {
 	fmt.Println("JOY: received order for ", scenarioUUID)
-	kubeapi.ExecShellInContainer("default", "joy", "joy",
-		"./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 /storage/nfs/L/kube/containercap-captures/"+scenarioUUID+".pcap"+" | gunzip > /storage/nfs/L/kube/containercap-transformed/"+scenarioUUID+".joy.json")
+	kubeapi.ExecShellInContainer("default", "joy", "joy", "./joy retain=1 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 threads=4 "+scnMap[scenarioUUID].captureDir+"/"+scenarioUUID+".pcap"+" | gunzip > "+scnMap[scenarioUUID].transformDir+"/"+scenarioUUID+".joy.json")
+
 }
 
 // cicProcessing is called after an experiment pod with scenarioUUID is done to extract features from the captured .pcap file
@@ -113,7 +129,7 @@ func joyProcessing(scenarioUUID string) {
 // the shell argument should not be modified
 func cicProcessing(scenarioUUID string) {
 	fmt.Println("CIC: received order for ", scenarioUUID)
-	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm /storage/nfs/L/kube/containercap-captures/"+scenarioUUID+".pcap /storage/nfs/L/kube/containercap-transformed/")
+	kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "./cfm "+scnMap[scenarioUUID].captureDir+"/"+scenarioUUID+".pcap "+scnMap[scenarioUUID].transformDir)
 }
 
 // main ties everything together
@@ -145,22 +161,46 @@ func main() {
 
 	var mountLoc = GetFlags().MountLoc
 
-	files, err := ioutil.ReadDir(mountLoc + "/containercap-scenarios/")
-	fmt.Println("Number of files read", len(files))
+	if _, err := os.Stat(mountLoc + "/containercap-scenarios"); os.IsNotExist(err) {
+		log.Fatal("Scenario directory does not exist")
+		return
+	}
+	err := filepath.WalkDir(mountLoc+"/containercap-scenarios", func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			parentPath := strings.Replace(filepath.Dir(path), mountLoc+"/containercap-scenarios/", "", -1)
+			filename := strings.TrimSuffix(filepath.Base(path), filepath.Ext(filepath.Base(path)))
+
+			if strings.Contains(GetFlags().Selection, parentPath) || GetFlags().Selection == "all" {
+				scnMap[filename] = &scnMeta{
+					inputDir:     mountLoc + "/containercap-scenarios/" + parentPath,
+					outputDir:    mountLoc + "/containercap-completed/" + parentPath + "/" + filename,
+					captureDir:   mountLoc + "/containercap-captures/" + parentPath + "/" + filename,
+					transformDir: mountLoc + "/containercap-transformed/" + parentPath + "/" + filename,
+				}
+			}
+		}
+
+		return nil
+	})
 	if err != nil {
 		log.Println(err.Error())
 		return
 	}
 
-	scenariosChan := make(chan *scenario.Scenario, len(files))
+	fmt.Println("Number of files read", len(scnMap))
+	scenariosChan := make(chan *scenario.Scenario, len(scnMap))
 
 	go func() {
 		defer close(scenariosChan)
 		var wgReadExp sync.WaitGroup
-		for _, file := range files {
+		for scnUUID := range scnMap {
 			wgReadExp.Add(1)
-			fmt.Println("Fx:", file.Name())
-			go loadScenarios(file.Name(), scenariosChan, &wgReadExp)
+			fmt.Println("Fx:", scnUUID)
+			go loadScenarios(scnUUID, scenariosChan, &wgReadExp)
 		}
 		wgReadExp.Wait()
 	}()
@@ -196,10 +236,10 @@ func main() {
 		go func(scene string) {
 			defer wgBundle.Done()
 			errs := [4]error{}
-			_, errs[0] = os.Stat(mountLoc + "/containercap-scenarios/" + scene + ".yaml")
-			_, errs[1] = os.Stat(mountLoc + "/containercap-captures/" + scene + ".pcap")
-			_, errs[2] = os.Stat(mountLoc + "/containercap-transformed/" + scene + ".pcap_Flow.csv")
-			_, errs[3] = os.Stat(mountLoc + "/containercap-transformed/" + scene + ".joy.json")
+			_, errs[0] = os.Stat(scnMap[scene].inputDir + "/" + scene + ".yaml")
+			_, errs[1] = os.Stat(scnMap[scene].captureDir + "/" + scene + ".pcap")
+			_, errs[2] = os.Stat(scnMap[scene].transformDir + "/" + scene + ".pcap_Flow.csv")
+			_, errs[3] = os.Stat(scnMap[scene].transformDir + "/" + scene + ".joy.json")
 
 			for i, err := range errs {
 				if err != nil {
@@ -208,13 +248,13 @@ func main() {
 				}
 			}
 
-			if err := os.MkdirAll(mountLoc+"/containercap-completed/"+scene, 0700); err != nil {
+			if err := os.MkdirAll(scnMap[scene].outputDir, 0700); err != nil {
 				fmt.Println(err.Error())
 			} else {
-				errs[0] = os.Rename(mountLoc+"/containercap-scenarios/"+scene+".yaml", mountLoc+"/containercap-completed/"+scene+"/"+scene+".yaml")
-				errs[1] = os.Rename(mountLoc+"/containercap-captures/"+scene+".pcap", mountLoc+"/containercap-completed/"+scene+"/"+scene+".pcap")
-				errs[2] = os.Rename(mountLoc+"/containercap-transformed/"+scene+".pcap_Flow.csv", mountLoc+"/containercap-completed/"+scene+"/"+scene+".pcap_Flow.csv")
-				errs[3] = os.Rename(mountLoc+"/containercap-transformed/"+scene+".joy.json", mountLoc+"/containercap-completed/"+scene+"/"+scene+".joy.json")
+				errs[0] = os.Rename(scnMap[scene].inputDir+"/"+scene+".yaml", scnMap[scene].outputDir+"/"+scene+".yaml")
+				errs[1] = os.Rename(scnMap[scene].captureDir+"/"+scene+".pcap", scnMap[scene].outputDir+"/"+scene+".pcap")
+				errs[2] = os.Rename(scnMap[scene].transformDir+"/"+scene+".pcap_Flow.csv", scnMap[scene].outputDir+"/"+scene+".pcap_Flow.csv")
+				errs[3] = os.Rename(scnMap[scene].transformDir+"/"+scene+".joy.json", scnMap[scene].outputDir+"/"+scene+".joy.json")
 			}
 
 			for i, err := range errs {

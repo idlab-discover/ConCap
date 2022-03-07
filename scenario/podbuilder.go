@@ -17,7 +17,7 @@ func init() {
 // All required metadata and containers are part of this one pod
 // This trick also allows running tools on 127.0.0.1 because the containers in the pod share the same network
 // The redesign will decouple this for flexiblity and resource efficiency reasons
-func ScenarioPod(scn *Scenario) *apiv1.Pod {
+func ScenarioPod(scn *Scenario, captureDir string) *apiv1.Pod {
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scn.UUID.String(),
@@ -56,7 +56,7 @@ func ScenarioPod(scn *Scenario) *apiv1.Pod {
 					// The Stdin and TTY fields are important for debugging purposes, without them, you can't access the containers through kubectl
 					Stdin:   true,
 					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", "/storage/nfs/L/kube/containercap-captures/" + scn.UUID.String() + ".pcap"},
+					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", captureDir + "/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
 						PreStop: &apiv1.Handler{
 							Exec: &apiv1.ExecAction{
