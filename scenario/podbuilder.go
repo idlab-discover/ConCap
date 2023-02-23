@@ -58,7 +58,7 @@ func ScenarioPod(scn *Scenario, captureDir string) *apiv1.Pod {
 					TTY:     true,
 					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", captureDir + "/" + scn.UUID.String() + ".pcap"},
 					Lifecycle: &apiv1.Lifecycle{
-						PreStop: &apiv1.Handler{
+						PreStop: &apiv1.LifecycleHandler{
 							Exec: &apiv1.ExecAction{
 								// This trick allows a clean exit of tcpdump, without the pcaps are often corrupted or not saved at all
 								Command: []string{"/bin/sh", "-c", "kill -15 $(ps aux | grep \"[t]cpdump\" | tr -s \" \" | cut -d \" \" -f 2)"},
