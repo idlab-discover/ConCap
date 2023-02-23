@@ -1,5 +1,5 @@
 # Only if you still have access to the cluster: 
-kubectl drain $(hostname) --delete-local-data --force
+kubectl drain $(hostname) --delete-emptydir-data --force
 sudo systemctl stop kubelet
 # Main clean-up
 sudo kubeadm reset
