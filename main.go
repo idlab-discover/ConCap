@@ -151,7 +151,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	// Create Target Pod
 	go func() {
 		defer Podwg.Done()
-		targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
+		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
 	}()
 
 	// Wait for Both Pods to be Running
@@ -214,13 +214,18 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		//######################################################################//
 
 		scn.StopTime = time.Now()
-
-		//kubeapi.DeletePod(targetpodspec.Name)
-		kubeapi.AddLabelToRunningPod("idle", "true", targetpod.Uuid)
 		kubeapi.AddLabelToRunningPod("idle", "true", attackpod.Uuid)
-		ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.COMPLETED, Time: time.Now()})
-
 		scenario.WriteScenario(scn, scnMap[scn.UUID.String()].inputDir+"/"+scn.UUID.String()+".yaml")
+		targetName := targetpodspec.ObjectMeta.Name
+		err = kubeapi.DeletePodAndPVC(targetName)
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			fmt.Println("Deleted Pod: " + targetName)
+			scenario.MinusTargetPodCount()
+		}
+
+		ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.COMPLETED, Time: time.Now()})
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -263,7 +268,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	// Create Target Pod
 	go func() {
 		defer Podwg.Done()
-		targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
+		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
 	}()
 
 	// Create Support Pods
@@ -370,14 +375,31 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		for _, podspec := range supportpod {
 			kubeapi.AddLabelToRunningPod("idle", "true", podspec.Uuid)
 		}
+		/*
+			for _, podspec:= range supportpodspec{
+				err = kubeapi.DeletePodAndPVC(podspec.ObjectMeta.Name)
+				if err != nil {
+					fmt.Println(err.Error())
+				} else {
+					scenario.MinusSupportPodCount()
+				}
+			}
+		*/
+
 		kubeapi.AddLabelToRunningPod("idle", "true", attackpod.Uuid)
 
-		// TargetPod needs to get deleted?
-		//kubeapi.DeletePod(targetpodspec.Name)
-		kubeapi.AddLabelToRunningPod("idle", "true", targetpod.Uuid)
+		//kubeapi.AddLabelToRunningPod("idle", "true", targetpod.Uuid)
 
 		ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.COMPLETED, Time: time.Now()})
 		scenario.WriteScenario(scn, scnMap[scn.UUID.String()].inputDir+"/"+scn.UUID.String()+".yaml")
+		targetName := targetpodspec.ObjectMeta.Name
+		err = kubeapi.DeletePodAndPVC(targetName)
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			fmt.Println("Deleted Pod: " + targetName)
+			scenario.MinusTargetPodCount()
+		}
 
 	}
 }
@@ -396,13 +418,13 @@ func CreateAttackPod(scn *scenario.Scenario, captureDir string) kubeapi.PodSpec 
 	return attackpod
 }
 
-func CreateTargetPod(scn *scenario.Scenario, captureDir string, targetpodspec *apiv1.Pod) kubeapi.PodSpec {
+func CreateTargetPod(scn *scenario.Scenario, captureDir string, targetpodspec *apiv1.Pod) (apiv1.Pod, kubeapi.PodSpec) {
 
 	targetpodspec = scenario.TargetPod(scn, captureDir)
 	targetpod, _ := kubeapi.CreateRunningPod(targetpodspec, false)
 
 	fmt.Println("Created target pod: " + targetpod.Name + " with IP: " + targetpod.PodIP + "\n")
-	return targetpod
+	return *targetpodspec, targetpod
 }
 
 // zipSource is a helper function which is used to zip the final folder in containercap-completed/<scenario-UUID>

@@ -29,6 +29,19 @@ func MinusTotalPodsCount() {
 	totalPods--
 }
 
+func MinusTargetPodCount() {
+	targetPodCount--
+	totalPods--
+}
+func MinusSupportPodCount() {
+	supportPodCount--
+	totalPods--
+}
+func MinusAttackerPodCount() {
+	attackerPodCount--
+	totalPods--
+}
+
 // Checks the amount of active ContainerCap pods.
 // Hardcoded maximum of X active pods. In order to accomodate for scenarios, can be extended, but if the amount of pods
 // for a new scenario would be more than the hardcoded value, the scenario cannot be added.

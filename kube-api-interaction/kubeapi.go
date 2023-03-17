@@ -288,6 +288,41 @@ func DeletePod(name string) {
 	fmt.Println("Deleted pod " + name)
 }
 
+func DeletePodAndPVC(podName string) error {
+	ctx := context.Background()
+
+	// Get the pod
+	pod, err := podsClient.Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get pod: %w", err)
+	}
+
+	// Get the PVC name from the pod's volumes
+	pvcName := ""
+	for _, volume := range pod.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			pvcName = volume.PersistentVolumeClaim.ClaimName
+			break
+		}
+	}
+
+	if pvcName == "" {
+		return fmt.Errorf("no PersistentVolumeClaim found in the pod")
+	}
+
+	// Delete the pod
+	err = podsClient.Delete(ctx, podName, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete pod: %w", err)
+	}
+	// Delete the PVC
+	//err = kubeClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
+	//if err != nil {
+	//	return fmt.Errorf("failed to delete PersistentVolumeClaim: %w", err)
+	//}
+	return nil
+}
+
 // TO DO
 // WatchPod gets the current event chain and prints the info
 func WatchPod() {
