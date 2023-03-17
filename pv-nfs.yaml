@@ -17,4 +17,4 @@ spec:
     - nfsvers=4.1
   nfs:
     server: "10.10.131.44"
-    path: "/storage/nfs/L/kube"
+    path: "/mnt/ContainerCap/"

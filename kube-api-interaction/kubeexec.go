@@ -73,15 +73,15 @@ func ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName stri
 }
 
 // ExecCommandInContainer executes a command in the specified container.
-func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) string {
+func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) (string, string) {
 	stdout, stderr, _ := ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName, cmd...)
 	log.Printf("Exec stderr: %q", stderr)
-	return stdout
+	return stdout, stderr
 }
 
 // ExecShellInContainer will use sh to launch a specific command in the container.
 // This is used in main
-func ExecShellInContainer(nameSpace, podName, containerName, cmd string) string {
+func ExecShellInContainer(nameSpace, podName, containerName, cmd string) (string, string) {
 	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
 }
 

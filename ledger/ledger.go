@@ -7,9 +7,9 @@ package ledger
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
-	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
 var ledger sync.Map
@@ -22,23 +22,36 @@ const (
 	RUNNING   ScenarioState = "running"
 	COMPLETED ScenarioState = "completed"
 	ERROR     ScenarioState = "error"
+	BUNDLED   ScenarioState = "bundled"
 )
 
 type LedgerEntry struct {
-	State    ScenarioState
-	Scenario *scenario.Scenario
+	State ScenarioState
+	Time  time.Time
 }
 
-func Register(scn *scenario.Scenario) {
-	ledger.Store(scn.UUID.String(), LedgerEntry{State: DECLARED, Scenario: scn})
+func Register(uuid string) {
+	ledger.Store(uuid, LedgerEntry{State: DECLARED, Time: time.Now()})
+	fmt.Println(uuid, GetScenarioState(uuid))
 }
 
 func UpdateState(uuid string, le LedgerEntry) {
 	ledger.Store(uuid, le)
+	fmt.Println("Ledger - Scenario: " + GetScenarioState(uuid))
 }
 
 func Unregister(uuid uuid.UUID) {
 	ledger.Delete(uuid.String())
+}
+
+func GetScenarioState(uuid string) string {
+
+	var l interface{}
+	l, _ = ledger.Load(uuid)
+	if l != nil {
+		return string(l.(LedgerEntry).State)
+	}
+	return "no state"
 }
 
 func Keys() []string {
