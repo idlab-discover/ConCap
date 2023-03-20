@@ -25,9 +25,18 @@ type ExecOptions struct {
 	PreserveWhitespace bool
 }
 
-// ExecWithOptions executes a command in the specified container,
-// returning stdout, stderr and error. `options` allowed for
-// additional parameters to be passed.
+// ExecWithOptions is a function that executes a command in a specified container using the Kubernetes API.
+// The function takes an ExecOptions struct as input, which includes the name of the Pod and Container to execute the command in,
+// the command to execute, and additional options such as whether to capture stdout and stderr, whether to preserve whitespace in output,
+// and whether to use a TTY.
+//
+// Parameters:
+//   - options: an ExecOptions struct containing the necessary information to execute the command.
+//
+// Returns:
+//   - stdout: a string containing the standard output of the command execution.
+//   - stderr: a string containing the standard error of the command execution.
+//   - err: an error object that indicates whether an error occurred while executing the command.
 func ExecWithOptions(options ExecOptions) (string, string, error) {
 	const tty = false
 	req := kubeClient.CoreV1().RESTClient().Post().
@@ -55,9 +64,20 @@ func ExecWithOptions(options ExecOptions) (string, string, error) {
 	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
 }
 
-// ExecCommandInContainerWithFullOutput executes a command in the
-// specified container and return stdout, stderr and error
-// this is basically kube exec at the api level
+// ExecCommandInContainerWithFullOutput is a function that executes a command in a specified container and returns the stdout,
+// stderr, and error using the Kubernetes client. It uses the ExecWithOptions function to execute the command at the API level.
+// The function takes the namespace, pod name, container name, and command as input parameters.
+//
+// Parameters:
+//   - nameSpace: A string representing the namespace of the pod.
+//   - podName: A string representing the name of the pod.
+//   - containerName: A string representing the name of the container.
+//   - cmd: A variadic parameter of strings representing the command to be executed in the container.
+//
+// Returns:
+//   - stdout: A string containing the standard output of the executed command.
+//   - stderr: A string containing the standard error output of the executed command.
+//   - error: An error object indicating any errors encountered while executing the command.
 func ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName string, cmd ...string) (string, string, error) {
 	return ExecWithOptions(ExecOptions{
 		Command:       cmd,
@@ -72,21 +92,56 @@ func ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName stri
 	})
 }
 
-// ExecCommandInContainer executes a command in the specified container.
+// ExecCommandInContainer is a function that executes a command in the specified container.
+// It takes the namespace, pod name, container name, and command as input parameters and returns the stdout and stderr outputs of the command.
+//
+// Parameters:
+//   - nameSpace: A string containing the name of the namespace in which the pod is running.
+//   - podName: A string containing the name of the pod in which the container is running.
+//   - containerName: A string containing the name of the container in which the command is to be executed.
+//   - cmd: A variable number of strings containing the command to be executed.
+//
+// Returns:
+//   - stdout: A string containing the standard output of the executed command.
+//   - stderr: A string containing the standard error output of the executed command.
 func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) (string, string) {
 	stdout, stderr, _ := ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName, cmd...)
 	log.Printf("Exec stderr: %q", stderr)
 	return stdout, stderr
 }
 
-// ExecShellInContainer will use sh to launch a specific command in the container.
-// This is used in main
+// ExecShellInContainer is a function that launches a command in the specified container using sh.
+// It takes the namespace, pod name, container name, and command as input parameters and returns the stdout and stderr outputs of the command.
+// This function is used in the main function.
+//
+// Parameters:
+//   - nameSpace: A string containing the name of the namespace in which the pod is running.
+//   - podName: A string containing the name of the pod in which the container is running.
+//   - containerName: A string containing the name of the container in which the command is to be executed.
+//   - cmd: A string containing the command to be executed using sh.
+//
+// Returns:
+//   - stdout: A string containing the standard output of the executed command.
+//   - stderr: A string containing the standard error output of the executed command.
 func ExecShellInContainer(nameSpace, podName, containerName, cmd string) (string, string) {
 	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
 }
 
-// execute is used internally, to wrap the commands in SPDY.
+// execute is a helper function used internally to execute a command in a container.
+// It uses SPDY protocol to wrap the command.
 // SPDY is deprecated as a protocol, so this may have to change if kubenetes drops it
+//
+// Parameters:
+//   - method: The HTTP method to use for the request (e.g. POST, GET, PUT).
+//   - url: The URL to execute the command against.
+//   - config: The Kubernetes REST config.
+//   - stdin: An io.Reader to read input from for the command.
+//   - stdout: An io.Writer to write standard output to.
+//   - stderr: An io.Writer to write standard error to.
+//   - tty: A boolean indicating whether to allocate a TTY for the command.
+//
+// Returns:
+//   - An error if one occurs during execution.
 func execute(method string, url *url.URL, config *rest.Config, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {
 	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
 	if err != nil {

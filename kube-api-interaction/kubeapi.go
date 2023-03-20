@@ -39,12 +39,14 @@ type PodSpec struct {
 	PodIP         string
 }
 
-// init for the kubeapi will get the kubeconfig and create a new clientset from which the a pod api is instantiated
+// The init function initializes the Kubernetes API by retrieving the kubeconfig file and creating a new clientset.
+// It uses the clientcmd package to retrieve the kubeconfig file from the default location and creates a clientset from it.
+// The clientset is then used to instantiate a Pods client and a Deployments client.
+//
+// The function does not take any parameters and does not return any values. It is automatically called when the program starts.
 func init() {
-	// kubadm install
+
 	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	// local kind cluster
-	// kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "kind-config-kind")
 	kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err)
@@ -59,11 +61,20 @@ func init() {
 	deploymentsClient = kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault)
 }
 
-// CreatePod is a function that creates a new Kubernetes pod using the supplied Pod object.
+// CreatePod is a function that takes a pointer to a Kubernetes Pod object as input.
+// It creates a new context with a timeout of 5 seconds, uses the Kubernetes client to create the new Pod, and returns
+// the new Pod object along with any errors encountered during the creation process.
+//
+// Parameters:
+//   - pod: A pointer to the Kubernetes Pod object that needs to be created.
+//
+// Returns:
+//   - A pointer to the new Kubernetes Pod object that was created by the function.
+//   - An error if there were any issues encountered during the creation process.
 func CreatePod(pod *apiv1.Pod) (*apiv1.Pod, error) {
-	// Create a new context with a timeout of 5 seconds.
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel() // Clean up the context once the function returns.
+	defer cancel()
 
 	// Use the Kubernetes client to create the new pod.
 	result, err := podsClient.Create(ctx, pod, metav1.CreateOptions{})
@@ -75,18 +86,25 @@ func CreatePod(pod *apiv1.Pod) (*apiv1.Pod, error) {
 	return result, nil
 }
 
-// CreateRunningPod invokes the kubernetes API to create a pod.
-// But, compared to CreatePod, will also wait until the pod is found in the Running state using CheckPodStatus.
-// This way, certain information such as PodIP can also be retrieved.
-// It also receives a boolean which, if set, can let the pod try obtain an idle running pod if available.
-// It will return a PodSpec as well as another bool to notify if a pod has been reused or not.
+// CreateRunningPod is a function that creates a Kubernetes Pod and waits for the Pod to enter the Running state using CheckPodStatus.
+// If the reusable parameter is set to true, it attempts to find an idle Pod that matches the image specified in the Pod's container,
+// and reuse it instead of creating a new Pod.
+// The function returns a PodSpec containing the relevant specifications of the created/reused Pod, as well as a boolean value indicating
+// whether a Pod was reused or not.
+//
+// Parameters:
+//   - pod: A pointer to the Kubernetes Pod object that needs to be created.
+//   - reusable: A boolean value indicating whether an idle Pod that matches the container image of the given Pod should be reused or not.
+//
+// Returns:
+//   - A PodSpec struct containing the specifications of the created/reused Pod.
+//   - A boolean value indicating whether a Pod was reused or not.
 func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool) {
 
 	//Declaring variables
 	var specs PodSpec = PodSpec{} // Stores the PodSpec of created/reused Pod
 	reused := false
 	var err error
-	//ok, podUuid := CheckForIdlePod(pod) //Checking if idle pod is available
 
 	if reusable {
 		specs, err = findIdlePodForAttacker(pod.Spec.Containers[0].Image)
@@ -110,12 +128,12 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool) {
 		}
 
 		podStates := make(chan bool, 64) //Used to get pod status
-		fmt.Println("\n KubeAPI: Checking Pod Status Name:" + result.Name)
+		fmt.Println("KubeAPI: Checking Pod Status Name:" + result.Name + "\n")
 
 		go CheckPodsStatus(podStates, result.Name) //Concurrently goes on to check the pod status
 
 		for msg := range podStates { //Iterating over channel of podStates
-			if msg { //If there is a message...
+			if msg {
 				pod, err := podsClient.Get(context.Background(), result.Name, metav1.GetOptions{})
 				if err != nil {
 					fmt.Errorf("Checking pod status failed: " + err.Error())
@@ -134,66 +152,16 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool) {
 	return specs, reused
 }
 
-/*
-	//If idle pod is present, and can be reused (attackerpod)
-	if ok && reusable {
-		list := CheckContainerCapPods()
-
-		for _, result := range list.Items { //Check each pod in the list
-			if result.Name == podUuid { //Compare pod Uuid with Uuid of idle pod
-
-				//If pod matches, stores the pod informations in PodSpec variable
-				specs = SetPodSpec(&result)
-
-				AddLabelToRunningPod("idle", "false", result.Name) //Adds label "idle : false" for this pod which has been reused.
-				reused = true                                      //Sets reuse as true.
-			}
-		}
-	} else { //Else create a new pod
-
-		result, err := CreatePod(pod) //Creating new pod
-
-		if err != nil {
-			fmt.Errorf("Creation of pod failed: " + err.Error())
-			return specs, false
-		}
-
-		podStates := make(chan bool, 64) //Used to get pod status
-		fmt.Println("\n KubeAPI: Checking Pod Status Name:" + result.Name)
-
-		go CheckPodsStatus(podStates, result.Name) //Concurrently goes on to check the pod status
-
-		for msg := range podStates { //Iterating over channel of podStates
-			if msg { //If there is a message...
-				pod, err := podsClient.Get(context.Background(), result.Name, metav1.GetOptions{})
-				if err != nil {
-					fmt.Errorf("Checking pod status failed: " + err.Error())
-					return specs, false
-				}
-				result = pod //Set result as got from client.Get()
-			} else {
-				time.Sleep(10 * time.Second)               //Wait for 10 seconds
-				go CheckPodsStatus(podStates, result.Name) //Repeatedly checks for pod state asynchronously
-			}
-		}
-
-		//When everything works fine, create a pod specification
-		specs = SetPodSpec(result)
-	}*/
-
-//Returns PodSpecification and whether pod was reused
-//return specs, reused
-//}
-
 // SetPodSpec is a helper function that returns a structured object that contains some of the relevant specifications
 // of the given Kubernetes Pod. It extracts the Pod's name, UUID, container image, category,
 // scenario type, container capability, container name, and Pod IP from the provided Pod
 // variable, and organizes them into a struct of type PodSpec.
+//
 // Parameters:
-// 		- pod: A pointer to the Kubernetes Pod whose specifications are to be extracted.
+//   - pod: A pointer to the Kubernetes Pod whose specifications are to be extracted.
+//
 // Returns:
-//		- A PodSpec object containing the specifications of the given Pod.
-
+//   - A PodSpec object containing the specifications of the given Pod.
 func SetPodSpec(pod *apiv1.Pod) PodSpec {
 	specs := PodSpec{
 		Name:          pod.Spec.Containers[0].Name,
@@ -206,11 +174,6 @@ func SetPodSpec(pod *apiv1.Pod) PodSpec {
 		PodIP:         pod.Status.PodIP,
 	}
 	return specs
-}
-
-func UpdatePodSpec(pod *apiv1.Pod, specs PodSpec) PodSpec {
-
-	return PodSpec{}
 }
 
 // UpdatePod can changes pod options / attributes
@@ -273,58 +236,28 @@ func ListPod() {
 	}
 }
 
-// DeletePod function to delete a pod using its name
-// TO DO: Will be used
-func DeletePod(name string) {
-
-	fmt.Println("Deleting pod...")
-
-	// Attempt to delete the specified pod using the Kubernetes podsClient, passing in the name and delete options
-
-	if err := podsClient.Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Deleted pod " + name)
-}
-
-func DeletePodAndPVC(podName string) error {
+// DeletePod is a function that takes a string containing the name of a Pod as input.
+// It deletes the specified Pod from the Kubernetes cluster using the Kubernetes client.
+//
+// Parameters:
+//   - podName: A string containing the name of the Pod that needs to be deleted.
+//
+// Returns:
+//   - An error if there were any issues encountered during the Pod deletion process.
+func DeletePod(podName string) error {
 	ctx := context.Background()
 
-	// Get the pod
-	pod, err := podsClient.Get(ctx, podName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get pod: %w", err)
-	}
-
-	// Get the PVC name from the pod's volumes
-	pvcName := ""
-	for _, volume := range pod.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil {
-			pvcName = volume.PersistentVolumeClaim.ClaimName
-			break
-		}
-	}
-
-	if pvcName == "" {
-		return fmt.Errorf("no PersistentVolumeClaim found in the pod")
-	}
-
 	// Delete the pod
-	err = podsClient.Delete(ctx, podName, metav1.DeleteOptions{})
+	err := podsClient.Delete(ctx, podName, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete pod: %w", err)
 	}
-	// Delete the PVC
-	//err = kubeClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
-	//if err != nil {
-	//	return fmt.Errorf("failed to delete PersistentVolumeClaim: %w", err)
-	//}
 	return nil
 }
 
 // TO DO
 // WatchPod gets the current event chain and prints the info
+// Not used
 func WatchPod() {
 	fmt.Println("Watching pods...")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -339,16 +272,22 @@ func WatchPod() {
 	}
 }
 
-// CHANGED
+// CheckPodsStatus is a function that takes a channel of boolean values and a slice of Pod names as input.
+// It retrieves the status of each Pod with the provided names using the Kubernetes client.
+// If a Pod is found to be in the Running state, the function sends a message to the channel indicating that the Pod is ready.
+// If a Pod is not found to be in the Running state, the function sends a message to the channel indicating that the Pod is not yet ready.
+// Once all Pods have been checked and found to be in the Running state, the function closes the channel.
+//
+// Parameters:
+//   - results: A channel of boolean values used to indicate the status of each Pod being checked.
+//   - names: A slice of strings containing the names of the Pods whose status needs to be checked.
 func CheckPodsStatus(results chan<- bool, names ...string) {
 	count := 0
 	for _, name := range names {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		//	pod, err := podsClient.Get(ctx, names[name], metav1.GetOptions{})
 		pod, err := podsClient.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
-			//panic(err)
 			fmt.Println("Checking status of pod failed: " + err.Error())
 			results <- false
 			return
@@ -370,80 +309,17 @@ func CheckPodsStatus(results chan<- bool, names ...string) {
 
 }
 
-// CheckPodStatus is a wrapper around get which uses the Phase part of the Status to signal to the lifecycle part in main if the pod is running and ready to accept an order
-/*func CheckPodsStatus(results chan<- bool, names ...string) {
-
-	// Create a waitgroup variable
-	var wg sync.WaitGroup
-
-	// Iterate through all pod names
-	for _, name := range names {
-
-		// Add 1 to the wait group count
-		wg.Add(1)
-
-		// Start a goroutine which takes in the name of the current pod instance
-		go func(podName string) {
-
-			// Release the wait group after the current goroutine completes its task
-			defer wg.Done()
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancel()
-
-			// Get the status of the pod for the given context using the podClient
-			pod, err := podsClient.Get(ctx, podName, metav1.GetOptions{})
-
-			// If an error occurs, set results <- false to into the channel that the pod has failed case
-			if err != nil {
-				fmt.Println("Checking status of pod failed: " + err.Error())
-				results <- false
-				return
-			}
-
-			// Based on the pod status's phase, write the result to a results channel
-			switch pod.Status.Phase {
-			case apiv1.PodPending:
-				results <- false
-			case apiv1.PodRunning:
-				results <- true
-			default:
-				fmt.Println("Found an unrecognised phase state " + pod.Status.Phase)
-				results <- false
-			}
-		}(name)
-	}
-
-	// This anonymous function launches another goroutine that waits for completion of all goroutines before closing the results channel.
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-}
-*/
-// CheckPodStatus is a wrapper around get which uses the Phase part of the Status to signal to the lifecycle part in main if the pod is running and ready to accept an order
-func CheckPodStatus(name string, results chan<- bool) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	pod, err := podsClient.Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		panic(err)
-	}
-	switch pod.Status.Phase {
-	case "Pending":
-		results <- false
-	case "Running":
-		results <- true
-		close(results)
-	default:
-		fmt.Println("Found an unrecognised phase state", pod.Status.Phase)
-		panic("help")
-	}
-}
-
-// AddLabelToRunningPod function takes key, value and uuid as string input parameters and returns a boolean.
-// This function is used to add a label to a running pod.
-// Mainly used to indicate a pod is idle or not.
+// AddLabelToRunningPod is a function that takes key, value, and uuid strings as input parameters and returns a boolean value.
+// The function is used to add a label to a running Pod, mainly to indicate whether the Pod is idle or not.
+// The function prepares the patch body in JSON format and patches the Pod with the specified UUID using the Kubernetes client.
+//
+// Parameters:
+//   - key: A string containing the label key to be added to the Pod.
+//   - value: A string containing the label value to be added to the Pod.
+//   - uuid: A string containing the UUID of the Pod to be labeled.
+//
+// Returns:
+//   - A boolean value indicating whether the patch was successfully applied to the Pod.
 func AddLabelToRunningPod(key string, value string, uuid string) bool {
 
 	// preparing the patch body in json format.
@@ -464,6 +340,7 @@ func AddLabelToRunningPod(key string, value string, uuid string) bool {
 
 // CHANGED
 // CheckForIdlePod searches for running pods with the same containercap and idle labels as provided 'pod'
+// Not used
 func CheckForIdlePod(pod *apiv1.Pod) (bool, string) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -488,39 +365,12 @@ func CheckForIdlePod(pod *apiv1.Pod) (bool, string) {
 	return false, ""
 }
 
-// func int32Ptr(i int32) *int32 { return &i }
-// func modePtr(s apiv1.MountPropagationMode) *apiv1.MountPropagationMode { return &s }
-
-// CHANGED
-// Returns a list with the names of all pods containing the containercap label.
-func CheckContainerCapPods() *apiv1.PodList {
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	// Get a list of pods matching the "containercap" label.
-	list, err := podsClient.List(ctx, metav1.ListOptions{
-		LabelSelector: "containercap",
-	})
-	if err != nil {
-		fmt.Println("Checking containercap pods error:", err)
-		return nil
-	}
-	/*
-		pods := make([]string, 0, len(list.Items))
-		for _, d := range list.Items {
-			// Check that the pod has a non-empty value for the "containercap" label before adding it.
-			if labelValue, exists := d.ObjectMeta.Labels["containercap"]; exists && labelValue != "" {
-				pods = append(pods, d.Name)
-			}
-		}*/
-	//return pods
-	return list
-}
-
-// CHANGED
-// CheckIdleContainerCapPods checks for all idle pods that are labeled with "containercap".
-// Returns a list with the names of all pods containing the containercap label (thus used for this program).
+// CheckIdleContainerCapPods is a function that checks for all idle Pods that are labeled with "containercap".
+// It returns a slice containing the names of all Pods that contain the "containercap" label and are idle (labeled "idle=true").
+// The function uses the Kubernetes client to list all Pods with the specified label combination.
+//
+// Returns:
+//   - A slice of strings containing the names of all idle Pods that are labeled with "containercap".
 func CheckIdleContainerCapPods() []string {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -541,12 +391,13 @@ func CheckIdleContainerCapPods() []string {
 	for _, d := range list.Items {
 		//only append pod name to the pod array if it has a non-empty "containercap" label
 		if labelValue, exists := d.ObjectMeta.Labels["containercap"]; exists && labelValue != "" {
-			pods = append(pods, d.Name)
+			pods = append(pods, d.ObjectMeta.Name)
 		}
 	}
 	return pods
 }
 
+// Not used
 func ReuseIdlePod(pod *apiv1.Pod) error {
 	// Set the "idle" label to false so that the pod won't be reused by other scenarios.
 	pod.ObjectMeta.Labels["idle"] = "false"
@@ -589,7 +440,16 @@ func CreateDeployment(deployment *appsv1.Deployment) (*appsv1.Deployment, error)
 	return result, nil
 }
 
-// PodExists checks if a pod exists with a given podName
+// PodExists is a function that takes a string containing the name of a Pod as input.
+// It checks if a Pod with the specified name exists in the Kubernetes cluster using the Kubernetes client.
+// If the Pod exists, the function returns true. If the Pod does not exist, the function returns false.
+//
+// Parameters:
+//   - podName: A string containing the name of the Pod whose existence needs to be checked.
+//
+// Returns:
+//   - A boolean value indicating whether the specified Pod exists or not.
+//   - An error if there were any issues encountered during the existence check process.
 func PodExists(podName string) (bool, error) {
 
 	_, err := podsClient.Get(context.Background(), podName, metav1.GetOptions{})
@@ -599,7 +459,15 @@ func PodExists(podName string) (bool, error) {
 	return true, nil
 }
 
-// GetRunningPodByName Is a helper function called to get the specs of a runningPod
+// GetRunningPodByName is a helper function that takes a string containing the name of a running Pod as input.
+// It retrieves the specifications of the specified Pod using the Kubernetes client and returns a PodSpec containing the relevant specifications.
+//
+// Parameters:
+//   - name: A string containing the name of the running Pod whose specifications need to be retrieved.
+//
+// Returns:
+//   - A PodSpec struct containing the specifications of the specified running Pod.
+//   - An error if there were any issues encountered during the retrieval process.
 func GetRunningPodByName(name string) (PodSpec, error) {
 
 	var specs PodSpec
@@ -613,7 +481,18 @@ func GetRunningPodByName(name string) (PodSpec, error) {
 	return specs, nil
 }
 
-// This will be the bottleneck of the program because of the sorting
+// findIdlePodForAttacker is a function that takes a string containing the image name of an attacker container as input.
+// It searches for an idle Pod with the same image in the same namespace as the attacker Pod by listing all Pods with the "idle=true" label.
+// The function sorts the list of idle Pods by start time so that the oldest Pod is first.
+// It then checks each Pod to see if it is in the Running phase and has not been scheduled by a ReplicaSet, and if it uses the same image as the attacker.
+// If a matching Pod is found, the function returns a PodSpec containing the relevant specifications of the Pod.
+//
+// Parameters:
+//   - image: A string containing the image name of the attacker container.
+//
+// Returns:
+//   - A PodSpec struct containing the specifications of the matching idle Pod, if one is found.
+//   - An error if there were any issues encountered during the search process.
 func findIdlePodForAttacker(image string) (PodSpec, error) {
 	var specs PodSpec
 	// List all pods in the same namespace as the attacker pod

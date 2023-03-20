@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"text/template"
 	"time"
 
@@ -41,8 +40,15 @@ type IPAddress struct {
 // CreatePcap creates an instance of pcapgo to capture traffic on the weave interface.
 // It writes to the given output file and applies a filter based on the included pods.
 // The filter takes in AttackAddress, TargetAddress, and SupportAddress.
+// PcapCreator is a helper function that creates a pcap file from packets captured on a device
+// based on a given scenario and pod specifications. It opens an output file, writes the pcap header,
+// sets up a packet source and filter, and writes packets to the file until the scenario state changes.
+//
+// Parameters:
+// - scn: A pointer to the scenario object that defines the filter criteria and state for capturing packets.
+// - outputPath: A string that specifies the path and name of the output pcap file.
+// - pods: A variadic parameter of PodSpec objects that contains information about each pod involved in the scenario.
 func PcapCreator(scn *scenario.Scenario, outputPath string, pods ...kubeapi.PodSpec) {
-
 	// Open output pcap file and write header
 	f, err := os.Create(outputPath)
 	if err != nil {
@@ -232,48 +238,13 @@ func PcapCreator2(scn *scenario.Scenario, outputPath string, attackpod kubeapi.P
 	}
 }
 
-// Function to filter traffic of a given pcap file. Not used
-func FilterPcap(pcapFile string, filter string) {
-	f, err := os.Create("test.pcap")
-	if err != nil {
-		panic(err)
-
-	}
-	abs_fname, err := filepath.Abs("./test.pcap")
-
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(abs_fname)
-	w := pcapgo.NewWriter(f)
-	w.WriteFileHeader(uint32(snapshot_len), layers.LinkTypeEthernet) // Maybe use LinkTypeIpv4
-	defer f.Close()
-
-	handle, err = pcap.OpenOffline(pcapFile)
-	if err != nil {
-		fmt.Println("could not open pcap file: " + err.Error())
-	}
-	defer handle.Close()
-	SetFilter(handle, filter)
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	count := 0
-	for packet := range packetSource.Packets() {
-		packet.Metadata().CaptureLength = len(packet.Data())
-		packet.Metadata().Length = len(packet.Data())
-		err = w.WritePacket(packet.Metadata().CaptureInfo, packet.Data())
-		if err != nil {
-			fmt.Println("could not write packet to pcap file " + err.Error())
-		}
-		count++
-		if count > 50 {
-			break
-		}
-	}
-
-}
-
-// Local function to set a filter on the handle used to capture packets in PcapCreator.
+// SetFilter is a local function that takes a handle to capture packets in PcapCreator and a filter string
+// as input. It sets the specified filter on the handle using the SetBPFFilter method from the pcap package.
 // More info on setting filters here: https://biot.com/capstats/bpf.html
+//
+// Parameters:
+//   - handle: A pointer to the pcap handle used to capture packets.
+//   - filter: A string containing the filter to be set on the handle.
 func SetFilter(handle *pcap.Handle, filter string) {
 	// Set filter
 	err = handle.SetBPFFilter(filter)
@@ -301,7 +272,19 @@ func DisplayAllDevices() {
 	}
 }
 
-// Helper function to get the given filter out of the scenario
+// generateFilterString is a helper function that takes a scenario and a slice of Kubernetes Pod specifications as input.
+// It extracts IP addresses of relevant pods and generates a filter string to be used in packet capture for the given scenario.
+// The function initializes an IPAddress struct with the IP addresses of the first and second pods as AttackAddress and TargetAddress,
+// and appends the IP addresses of any additional pods to the SupportAddress slice of the struct.
+// It then uses a template to generate the filter string based on the extracted IP addresses.
+//
+// Parameters:
+//   - scn: A pointer to the scenario.Scenario struct that specifies the capture engine and the filter to be used for packet capture.
+//   - pods: A slice of kubeapi.PodSpec structs that specify the IP addresses of relevant pods.
+//
+// Returns:
+//   - A string containing the filter to be set on the pcap handle for packet capture, generated using the provided scenario and pod specifications.
+//   - An error if there are less than 2 pods or if there are issues with parsing the template or executing the filter.
 func generateFilterString(scn *scenario.Scenario, pods []kubeapi.PodSpec) (string, error) {
 
 	var podIPs IPAddress

@@ -18,13 +18,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
 	"github.com/radovskyb/watcher"
-	apiv1 "k8s.io/api/core/v1"
-
+	atksetter "gitlab.ilabt.imec.be/lpdhooge/containercap/atkcommandsetter"
 	capengi "gitlab.ilabt.imec.be/lpdhooge/containercap/capture-engines"
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/ledger"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 	"go.uber.org/zap"
+	apiv1 "k8s.io/api/core/v1"
 )
 
 // Constants
@@ -104,7 +104,7 @@ func loadScenarios(filename string, wg *sync.WaitGroup) *scenario.Scenario {
 		log.Println("Couldn't read file" + scnMap[filename].inputDir + "/" + filename + ".yaml")
 	}
 	defer fh.Close()
-	scn := scenario.ReadScenario(fh)
+	scn := scenario.ReadScenario2(fh)
 	scn.UUID, err = uuid.Parse(strings.Split(filename, ".")[0])
 	if err != nil {
 		log.Println("File had incorrect UUID filename")
@@ -156,6 +156,12 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 
 	// Wait for Both Pods to be Running
 	Podwg.Wait()
+
+	var attack string
+	if scn.Attacker.AtkCommand == "" {
+		attack = atksetter.GenerateAttackCommand(scn)
+		scn.Attacker.AtkCommand = attack
+	}
 
 	ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.STARTING, Time: time.Now()})
 
@@ -214,10 +220,11 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		//######################################################################//
 
 		scn.StopTime = time.Now()
+
 		kubeapi.AddLabelToRunningPod("idle", "true", attackpod.Uuid)
 		scenario.WriteScenario(scn, scnMap[scn.UUID.String()].inputDir+"/"+scn.UUID.String()+".yaml")
 		targetName := targetpodspec.ObjectMeta.Name
-		err = kubeapi.DeletePodAndPVC(targetName)
+		err = kubeapi.DeletePod(targetName)
 		if err != nil {
 			fmt.Println(err.Error())
 		} else {
@@ -237,9 +244,8 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	//syscall.Umask(0) // https://stackoverflow.com/questions/14249467/os-mkdir-and-os-mkdirall-permissions
+	// https://stackoverflow.com/questions/14249467/os-mkdir-and-os-mkdirall-permissions
 	os.MkdirAll(scnMap[scn.UUID.String()].transformDir, 0777)
-	//syscall.Umask(0)
 	os.MkdirAll(scnMap[scn.UUID.String()].captureDir, 0777)
 
 	//######################################################################//
@@ -277,7 +283,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		go func(index int, helperpod *apiv1.Pod) {
 			defer Podwg.Done()
 			helper, _ := kubeapi.CreateRunningPod(helperpod, false)
-			fmt.Println("Created support pod: " + helper.Name + " with IP: " + helper.PodIP + "\n")
+			fmt.Println(" Created support pod: " + helper.Name + " with IP: " + helper.PodIP + "\n")
 
 			mu.Lock()
 			supportpod[index] = helper
@@ -286,6 +292,12 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		}(index, helperpod)
 	}
 	Podwg.Wait()
+
+	var attack string
+	if scn.Attacker.AtkCommand == "" {
+		attack = atksetter.GenerateAttackCommand(scn)
+		scn.Attacker.AtkCommand = attack
+	}
 
 	fmt.Println(" KUBEAPI: All pods created")
 	ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.STARTING, Time: time.Now()})
@@ -388,12 +400,10 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 
 		kubeapi.AddLabelToRunningPod("idle", "true", attackpod.Uuid)
 
-		//kubeapi.AddLabelToRunningPod("idle", "true", targetpod.Uuid)
-
 		ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.COMPLETED, Time: time.Now()})
 		scenario.WriteScenario(scn, scnMap[scn.UUID.String()].inputDir+"/"+scn.UUID.String()+".yaml")
 		targetName := targetpodspec.ObjectMeta.Name
-		err = kubeapi.DeletePodAndPVC(targetName)
+		err = kubeapi.DeletePod(targetName)
 		if err != nil {
 			fmt.Println(err.Error())
 		} else {
@@ -411,9 +421,9 @@ func CreateAttackPod(scn *scenario.Scenario, captureDir string) kubeapi.PodSpec 
 	attackpod, reused := kubeapi.CreateRunningPod(attackpodspec, true)
 
 	if reused {
-		fmt.Println("Attackerpod " + attackpod.Name + " with IP: " + attackpod.PodIP + " will be reused\n")
+		fmt.Println(" Attackerpod " + attackpod.Name + " with IP: " + attackpod.PodIP + " will be reused\n")
 	} else {
-		fmt.Println("Created attack pod: " + attackpod.Name + " with IP: " + attackpod.PodIP + "\n")
+		fmt.Println(" Created attack pod: " + attackpod.Name + " with IP: " + attackpod.PodIP + "\n")
 	}
 	return attackpod
 }
@@ -423,7 +433,7 @@ func CreateTargetPod(scn *scenario.Scenario, captureDir string, targetpodspec *a
 	targetpodspec = scenario.TargetPod(scn, captureDir)
 	targetpod, _ := kubeapi.CreateRunningPod(targetpodspec, false)
 
-	fmt.Println("Created target pod: " + targetpod.Name + " with IP: " + targetpod.PodIP + "\n")
+	fmt.Println(" Created target pod: " + targetpod.Name + " with IP: " + targetpod.PodIP + "\n")
 	return *targetpodspec, targetpod
 }
 
@@ -527,9 +537,7 @@ func bundling(scene *scenario.Scenario) {
 		}
 	}
 
-	//u.CompleteScn--
-	//u.BundledScn++
-	ledger.UpdateState(scene.UUID.String(), ledger.LedgerEntry{State: ledger.BUNDLED, Time: time.Now()}) //Need to check
+	ledger.UpdateState(scene.UUID.String(), ledger.LedgerEntry{State: ledger.BUNDLED, Time: time.Now()})
 	if !gotError {
 		fmt.Println("Completed bundling for scenario => " + scene.UUID.String())
 	} else {
@@ -562,7 +570,7 @@ func bundledFunction(scnUUID string) {
 				if err != nil {
 					fmt.Println("Error reading YAML file: " + err.Error())
 				}
-				yaml := scenario.ReadScenario(yamlFile)
+				yaml := scenario.ReadScenario2(yamlFile)
 				yaml.UUID = newUUID
 				scenario.WriteScenario(yaml, scenarioDir+filename+".yaml")
 				err = os.Rename(scenarioDir+parentPath+filename+".yaml", scenarioDir+parentPath+newUUID.String()+".yaml")

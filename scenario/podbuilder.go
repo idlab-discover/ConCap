@@ -237,46 +237,6 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 	return pod
 }
 
-// SupportPod takes a Scenario specification and makes a pod with a sole support-container.
-/*func SupportPod(scn *Scenario, captureDir string) *apiv1.Pod {
-	pod := &apiv1.Pod{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      scn.UUID.String() + "-support-" + fmt.Sprint(supportPodCount),
-			Namespace: apiv1.NamespaceDefault,
-			Labels: map[string]string{
-				"containercap": "support-pod",
-				"category":     string(scn.Support.Category),
-				"scenarioType": string(scn.ScenarioType),
-				"idle":         "false",
-			},
-		},
-		Spec: apiv1.PodSpec{
-			ImagePullSecrets: []apiv1.LocalObjectReference{
-				{Name: "idlab-gitlab"}},
-			Containers: []apiv1.Container{
-				{
-					Name:  scn.Support[0].Name,
-					Image: scn.Support[0].Image,
-					Ports: []apiv1.ContainerPort{
-						{
-							Name:          RandStringRunes(8),
-							Protocol:      apiv1.ProtocolTCP,
-							ContainerPort: scn.Support[0].Ports[0],
-						},
-					},
-					Stdin: true,
-					TTY:   true,
-				},
-			},
-		},
-		Status: apiv1.PodStatus{},
-	}
-	supportPodCount++
-	totalPods++
-	return pod
-}*/
-
 // SupportPods takes a Scenario specification and makes pods with a sole support-container.
 func SupportPods(scn *Scenario, captureDir string) []*apiv1.Pod {
 	pods := make([]*apiv1.Pod, len(scn.Support))
