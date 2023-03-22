@@ -138,7 +138,7 @@ func SearchImage(attackerName string) (string, error) {
 		fmt.Printf("Error fetching registry repositories: %s\n", err)
 		return "", err
 	}
-
+	fmt.Println("There are " + fmt.Sprint(len(registryRepos)) + " repositories")
 	// Create a list to store the containers
 	var containers []string
 
@@ -146,7 +146,6 @@ func SearchImage(attackerName string) (string, error) {
 	for _, repo := range registryRepos {
 		containers = append(containers, repo.Path)
 	}
-
 	for _, container := range containers {
 		if strings.Contains(container, attackerName) {
 			image := "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/" + attackerName + ":latest"

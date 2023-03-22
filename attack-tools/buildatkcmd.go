@@ -82,6 +82,14 @@ func fetchAttacker(category scenario.ScenarioType, name string) (*AttackCommandB
 			a = NewAutoNSE()
 		case "zmap":
 			a = NewZmap()
+		case "slowloris":
+			a = NewSlowloris()
+		case "hulk":
+			a = NewHulk()
+		case "rudy":
+			a = NewRudy()
+		case "torshammer":
+			a = NewTorshammer()
 		default:
 			return nil, errors.New("attacker not recognized")
 		}

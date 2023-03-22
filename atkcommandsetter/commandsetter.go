@@ -34,12 +34,6 @@ func GenerateAttackCommand(scn *scenario.Scenario) string {
 			break
 
 			// If https://127.0.0.1, http://127.0.0.1, or 127.0.0.1 are present inside part then replace it with target using strings.Replace()
-		} else if strings.Contains(part, "https://127.0.0.1") {
-			atk[i] = strings.Replace(part, "https://127.0.0.1", target, -1)
-			break
-		} else if strings.Contains(part, "http://127.0.0.1") {
-			atk[i] = strings.Replace(part, "http://127.0.0.1", target, -1)
-			break
 		} else if strings.Contains(part, "127.0.0.1") {
 			atk[i] = strings.Replace(part, "127.0.0.1", target, -1)
 			break
