@@ -9,8 +9,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/xanzy/go-gitlab"
@@ -44,6 +46,7 @@ type Attacker struct {
 	Name       string       `yaml:"name"`
 	Image      string       `yaml:"image"`
 	AtkCommand string       `yaml:"atkCommand"`
+	AtkTime    string       `yaml:"atkTime"`
 }
 
 type Target struct {
@@ -111,6 +114,12 @@ func ReadScenario2(r io.Reader) *Scenario {
 		}
 
 	}
+	var atkTime = GetTimeout(s.Attacker.AtkTime)
+	if atkTime == "" {
+		s.Attacker.AtkTime = "60s"
+	} else {
+		s.Attacker.AtkTime = atkTime
+	}
 
 	return &s
 }
@@ -133,7 +142,13 @@ func SearchImage(attackerName string) (string, error) {
 	git, _ := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"), gitlab.WithBaseURL("https://gitlab.ilabt.imec.be/api/v4"))
 	projectID := 880
 
-	registryRepos, _, err := git.ContainerRegistry.ListProjectRegistryRepositories(projectID, &gitlab.ListRegistryRepositoriesOptions{})
+	options := &gitlab.ListRegistryRepositoriesOptions{
+		ListOptions: gitlab.ListOptions{
+			PerPage: 100,
+			Page:    1,
+		},
+	}
+	registryRepos, _, err := git.ContainerRegistry.ListProjectRegistryRepositories(projectID, options)
 	if err != nil {
 		fmt.Printf("Error fetching registry repositories: %s\n", err)
 		return "", err
@@ -153,4 +168,42 @@ func SearchImage(attackerName string) (string, error) {
 		}
 	}
 	return "", err
+}
+
+func GetTimeout(input string) string {
+	var seconds int
+
+	letterIndex := strings.IndexFunc(input, func(c rune) bool {
+		return !unicode.IsNumber(c)
+	})
+
+	if letterIndex == -1 {
+		return ""
+	}
+	if len(input) != letterIndex+1 {
+		return ""
+	}
+	// Extract the number and the letter
+	numberStr := input[:letterIndex]
+	letter := input[letterIndex]
+
+	// Parse the number
+	number, err := strconv.Atoi(numberStr)
+	if err != nil {
+		return ""
+	}
+
+	// Convert the number to seconds based on the letter
+	switch letter {
+	case 's':
+		seconds = number
+	case 'm':
+		seconds = number * 60
+	case 'h':
+		seconds = number * 3600
+	default:
+		return ""
+	}
+
+	return fmt.Sprint(seconds) + "s"
 }

@@ -206,9 +206,11 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		}
 
 		fmt.Println("Launching: " + buf.String())
-		scn.StartTime = time.Now()
 
-		stdo, stde := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, buf.String())
+		fmt.Println("The attack will last " + scn.Attacker.AtkTime)
+		var command = "timeout " + scn.Attacker.AtkTime + " "
+		scn.StartTime = time.Now()
+		stdo, stde := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+buf.String())
 
 		if stde != "" {
 			fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
@@ -365,10 +367,13 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		}
 		fmt.Println("Launching: " + bufAttack.String() + "\t and " + bufSupport.String() + "\n")
 
+		fmt.Println("The attack will last " + scn.Attacker.AtkTime)
+		var command = "timeout " + scn.Attacker.AtkTime + " "
+
 		scn.StartTime = time.Now()
 		//stdo, stde := kubeapi.ExecShellInContainer("default", supportpod.Uuid, scn.Support, bufSupport.String())                 //scn.Attacker.AtkCommand) //_ was stdo
 
-		stdoAttack, stdeAttack := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, bufAttack.String())
+		stdoAttack, stdeAttack := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+bufAttack.String())
 
 		/*if stde != "" {
 			fmt.Println("\t" + scn.UUID.String() + " : " + scn.Support[0].Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
