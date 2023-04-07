@@ -152,6 +152,15 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	go func() {
 		defer Podwg.Done()
 		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
+		time.Sleep(2 * time.Second)
+		if scn.Target.Category == "ssh" {
+			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
+
+			if stde != "" {
+				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+			}
+			fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
+		}
 	}()
 
 	// Wait for Both Pods to be Running
@@ -258,7 +267,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	var targetpod kubeapi.PodSpec
 	var targetpodspec apiv1.Pod
 	supportpod := make([]kubeapi.PodSpec, len(scn.Support))
-	supportpodspec := scenario.SupportPods(scn, scnMap[scn.UUID.String()].captureDir)
+	//supportpodspec := scenario.SupportPods(scn, scnMap[scn.UUID.String()].captureDir)
 	fmt.Println("There are " + fmt.Sprint(len(scn.Support)) + " support pods found")
 	var mu sync.Mutex
 	var supportIPs []net.IP
@@ -277,8 +286,20 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	go func() {
 		defer Podwg.Done()
 		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
+		time.Sleep(2 * time.Second)
+		if scn.Target.Category == "ssh" {
+			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog restart")
+
+			if stde != "" {
+				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+			}
+			fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
+		}
 	}()
 
+	Podwg.Wait()
+
+	supportpodspec := scenario.SupportPods(scn, scnMap[scn.UUID.String()].captureDir, targetpod.PodIP)
 	// Create Support Pods
 	for index, helperpod := range supportpodspec {
 		Podwg.Add(1)
@@ -291,7 +312,18 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			supportpod[index] = helper
 			supportIPs = append(supportIPs, net.ParseIP(helper.PodIP))
 			mu.Unlock()
+			time.Sleep(2 * time.Second)
+			if scn.Support[index].Category == "fail2ban" {
+				stdo, stde := kubeapi.ExecShellInContainer("default", supportpod[index].Uuid, scn.Support[index].Name, scn.Support[index].SupCommand)
+
+				if stde != "" {
+					fmt.Println(scn.UUID.String() + " : " + scn.Support[index].Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+				}
+				fmt.Println(scn.UUID.String() + " : " + scn.Support[index].Name + " : stderr: " + stde)
+			}
+
 		}(index, helperpod)
+
 	}
 	Podwg.Wait()
 

@@ -124,7 +124,7 @@ func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...str
 //   - stdout: A string containing the standard output of the executed command.
 //   - stderr: A string containing the standard error output of the executed command.
 func ExecShellInContainer(nameSpace, podName, containerName, cmd string) (string, string) {
-	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
+	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/bash", "-c", cmd)
 }
 
 // execute is a helper function used internally to execute a command in a container.

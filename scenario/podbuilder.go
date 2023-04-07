@@ -210,11 +210,21 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 					Image: scn.Target.Image,
 					Stdin: true,
 					TTY:   true,
+					SecurityContext: &apiv1.SecurityContext{
+						Privileged: func() *bool { b := true; return &b }(),
+					},
+
 					Ports: []apiv1.ContainerPort{
 						{
 							Name:          RandStringRunes(8),
 							Protocol:      apiv1.ProtocolTCP,
 							ContainerPort: scn.Target.Ports[0],
+						},
+					},
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "nfs-volume",
+							MountPath: "/Containercap",
 						},
 					},
 				},
@@ -238,7 +248,7 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 }
 
 // SupportPods takes a Scenario specification and makes pods with a sole support-container.
-func SupportPods(scn *Scenario, captureDir string) []*apiv1.Pod {
+func SupportPods(scn *Scenario, captureDir string, podIP string) []*apiv1.Pod {
 	pods := make([]*apiv1.Pod, len(scn.Support))
 	for index, support := range scn.Support {
 		pod := &apiv1.Pod{
@@ -269,6 +279,22 @@ func SupportPods(scn *Scenario, captureDir string) []*apiv1.Pod {
 						},
 						Stdin: true,
 						TTY:   true,
+						SecurityContext: &apiv1.SecurityContext{
+							Privileged: func() *bool { b := true; return &b }(),
+						},
+						Env: []apiv1.EnvVar{
+							{
+								Name:  "TARGETPOD_IP",
+								Value: podIP,
+							},
+						},
+
+						VolumeMounts: []apiv1.VolumeMount{
+							{
+								Name:      "nfs-volume",
+								MountPath: "/Containercap",
+							},
+						},
 					},
 				},
 				Volumes: []apiv1.Volume{
