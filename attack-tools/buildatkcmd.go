@@ -90,6 +90,8 @@ func fetchAttacker(category scenario.ScenarioType, name string) (*AttackCommandB
 			a = NewRudy()
 		case "torshammer":
 			a = NewTorshammer()
+		case "metasploit":
+			a = NewMetasploit()
 		default:
 			return nil, errors.New("attacker not recognized")
 		}

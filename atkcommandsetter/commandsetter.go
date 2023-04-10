@@ -1,6 +1,7 @@
 package Command
 
 import (
+	"fmt"
 	"strings"
 
 	atktools "gitlab.ilabt.imec.be/lpdhooge/containercap/attack-tools"
@@ -31,12 +32,12 @@ func GenerateAttackCommand(scn *scenario.Scenario) string {
 		// If localhost is present inside part then replace it with target using strings.Replace()
 		if strings.Contains(part, "localhost") {
 			atk[i] = strings.Replace(part, "localhost", target, -1)
-			break
+			fmt.Println(i)
 
 			// If https://127.0.0.1, http://127.0.0.1, or 127.0.0.1 are present inside part then replace it with target using strings.Replace()
 		} else if strings.Contains(part, "127.0.0.1") {
 			atk[i] = strings.Replace(part, "127.0.0.1", target, -1)
-			break
+
 		}
 	}
 

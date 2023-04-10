@@ -82,6 +82,9 @@ func init() {
 	}
 	defer logger.Sync()
 	sugar = logger.Sugar()
+
+	//meta.NewMeta()
+	//time.Sleep(100 * time.Second)
 }
 
 type IPAddress struct {
@@ -152,14 +155,14 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	go func() {
 		defer Podwg.Done()
 		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
-		time.Sleep(2 * time.Second)
+		//time.Sleep(2 * time.Second)
 		if scn.Target.Category == "ssh" {
-			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
-
-			if stde != "" {
-				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-			}
-			fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
+			//stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
+			//stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
+			//if stde != "" {
+			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+			//}
+			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
 		}
 	}()
 

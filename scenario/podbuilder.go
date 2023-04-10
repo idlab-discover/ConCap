@@ -163,6 +163,12 @@ func AttackPod(scn *Scenario, captureDir string) *apiv1.Pod {
 
 					Stdin: true,
 					TTY:   true,
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "nfs-volume",
+							MountPath: "/Containercap",
+						},
+					},
 				},
 			},
 			Volumes: []apiv1.Volume{
