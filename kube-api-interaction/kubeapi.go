@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,6 +28,7 @@ var kubeConfig *rest.Config
 var kubeClient kubernetes.Clientset
 var podsClient v1.PodInterface
 var deploymentsClient apps.DeploymentInterface
+var listMutex sync.Mutex
 
 type PodSpec struct {
 	Name          string
@@ -99,7 +101,7 @@ func CreatePod(pod *apiv1.Pod) (*apiv1.Pod, error) {
 // Returns:
 //   - A PodSpec struct containing the specifications of the created/reused Pod.
 //   - A boolean value indicating whether a Pod was reused or not.
-func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool) {
+func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool, error) {
 
 	//Declaring variables
 	var specs PodSpec = PodSpec{} // Stores the PodSpec of created/reused Pod
@@ -109,24 +111,20 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool) {
 	if reusable {
 		specs, err = findIdlePodForAttacker(pod.Spec.Containers[0].Image)
 		if err != nil {
-			fmt.Println("Error finding pod: " + err.Error())
+			//fmt.Println("Error finding pod: " + err.Error())
 		}
 		fmt.Println(specs.Name + "	" + specs.PodIP)
 	}
-
 	if (specs != PodSpec{}) {
-
 		AddLabelToRunningPod("idle", "false", specs.Uuid) //Adds label "idle : false" for this pod which has been reused.
 		reused = true                                     //Sets reuse as true.
 
 	} else {
 		result, err := CreatePod(pod) //Creating new pod
-
 		if err != nil {
-			fmt.Errorf("Creation of pod failed: " + err.Error())
-			return specs, false
+			//fmt.Println("Creation of pod failed: " + err.Error())
+			return specs, false, err
 		}
-
 		podStates := make(chan bool, 64) //Used to get pod status
 		fmt.Println("KubeAPI: Checking Pod Status Name:" + result.Name + "\n")
 
@@ -136,8 +134,8 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool) {
 			if msg {
 				pod, err := podsClient.Get(context.Background(), result.Name, metav1.GetOptions{})
 				if err != nil {
-					fmt.Errorf("Checking pod status failed: " + err.Error())
-					return specs, false
+					//fmt.Println("Checking pod status failed: " + err.Error())
+					return specs, false, err
 				}
 				result = pod //Set result as got from client.Get()
 			} else {
@@ -149,7 +147,7 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool) {
 		//When everything works fine, create a pod specification
 		specs = SetPodSpec(result)
 	}
-	return specs, reused
+	return specs, reused, err
 }
 
 // SetPodSpec is a helper function that returns a structured object that contains some of the relevant specifications
@@ -496,6 +494,8 @@ func GetRunningPodByName(name string) (PodSpec, error) {
 func findIdlePodForAttacker(image string) (PodSpec, error) {
 	var specs PodSpec
 	// List all pods in the same namespace as the attacker pod
+	listMutex.Lock() // Lock the mutex before accessing the list
+	defer listMutex.Unlock()
 	podList, err := podsClient.List(context.Background(), metav1.ListOptions{LabelSelector: "idle=true"})
 	if err != nil {
 		return specs, err

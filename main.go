@@ -2,14 +2,21 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
+	"context"
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
+
 	"log"
 	"net"
+	"net/http"
 	"os"
+
 	"path/filepath"
 	"strings"
 	"sync"
@@ -157,12 +164,12 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
 		//time.Sleep(2 * time.Second)
 		if scn.Target.Category == "ssh" {
+			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart")
 			//stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
-			//stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
-			//if stde != "" {
-			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-			//}
-			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
+			if stde != "" {
+				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+			}
+			fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
 		}
 	}()
 
@@ -198,6 +205,8 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 
 	if ready {
 
+		go checkHealth("http://"+targetpod.PodIP+":8989/health", "Hello", "Test", attackpod, *scn)
+
 		//######################################################################//
 		//				STARTING ATTACK	  + 	CREATING PCAP FILE				//
 		//######################################################################//
@@ -222,7 +231,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		fmt.Println("The attack will last " + scn.Attacker.AtkTime)
 		var command = "timeout " + scn.Attacker.AtkTime + " "
 		scn.StartTime = time.Now()
-		stdo, stde := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+buf.String())
+		stdo, stde := kubeapi.ExecShellInContainer("default", attackpod.Uuid, attackpod.ContainerName, command+buf.String())
 
 		if stde != "" {
 			fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
@@ -308,7 +317,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		Podwg.Add(1)
 		go func(index int, helperpod *apiv1.Pod) {
 			defer Podwg.Done()
-			helper, _ := kubeapi.CreateRunningPod(helperpod, false)
+			helper, _, _ := kubeapi.CreateRunningPod(helperpod, false)
 			fmt.Println(" Created support pod: " + helper.Name + " with IP: " + helper.PodIP + "\n")
 
 			mu.Lock()
@@ -365,6 +374,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	}
 
 	if ready {
+		go checkHealth("http://"+targetpod.PodIP+":8989/health", "Hello", "Test", attackpod, *scn)
 
 		//######################################################################//
 		//				STARTING ATTACK	  + 	CREATING PCAP FILE				//
@@ -408,16 +418,16 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		scn.StartTime = time.Now()
 		//stdo, stde := kubeapi.ExecShellInContainer("default", supportpod.Uuid, scn.Support, bufSupport.String())                 //scn.Attacker.AtkCommand) //_ was stdo
 
-		stdoAttack, stdeAttack := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+bufAttack.String())
+		kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+bufAttack.String())
 
 		/*if stde != "" {
 			fmt.Println("\t" + scn.UUID.String() + " : " + scn.Support[0].Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-		}*/
+		}
 		if stdeAttack != "" {
 			fmt.Println("\t" + scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdoAttack + "\n\t stderr: " + stdeAttack)
 		}
 		fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name) //+ " : stderr: " + stde
-
+		*/
 		//######################################################################//
 		//								STOP ATTACK								//
 		//######################################################################//
@@ -458,7 +468,7 @@ func CreateAttackPod(scn *scenario.Scenario, captureDir string) kubeapi.PodSpec 
 
 	attackpodspec := scenario.AttackPod(scn, captureDir)
 
-	attackpod, reused := kubeapi.CreateRunningPod(attackpodspec, true)
+	attackpod, reused, _ := kubeapi.CreateRunningPod(attackpodspec, true)
 
 	if reused {
 		fmt.Println(" Attackerpod " + attackpod.Name + " with IP: " + attackpod.PodIP + " will be reused\n")
@@ -471,10 +481,34 @@ func CreateAttackPod(scn *scenario.Scenario, captureDir string) kubeapi.PodSpec 
 func CreateTargetPod(scn *scenario.Scenario, captureDir string, targetpodspec *apiv1.Pod) (apiv1.Pod, kubeapi.PodSpec) {
 
 	targetpodspec = scenario.TargetPod(scn, captureDir)
-	targetpod, _ := kubeapi.CreateRunningPod(targetpodspec, false)
-
+	targetpod, _, _ := kubeapi.CreateRunningPod(targetpodspec, false)
 	fmt.Println(" Created target pod: " + targetpod.Name + " with IP: " + targetpod.PodIP + "\n")
 	return *targetpodspec, targetpod
+}
+
+func checkHealth(url string, headerName string, headerValue string, attackerpod kubeapi.PodSpec, scn scenario.Scenario) bool {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false
+	}
+
+	req.Header.Set(headerName, headerValue)
+
+	for {
+		time.Sleep(4 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		req = req.WithContext(ctx)
+
+		resp, err := client.Do(req)
+		if err != nil || resp.StatusCode != http.StatusOK || ctx.Err() == context.DeadlineExceeded {
+			kubeapi.ExecShellInContainer("default", attackerpod.Uuid, attackerpod.ContainerName, "pkill -n -e")
+			fmt.Println("The Target is down")
+			return false
+		}
+	}
 }
 
 // zipSource is a helper function which is used to zip the final folder in containercap-completed/<scenario-UUID>
@@ -534,6 +568,74 @@ func zipSource(source, target string) error {
 	})
 }
 
+func convertJSONToCSV(inputFile, outputFile string) error {
+	jsonFile, err := os.Open(inputFile)
+	if err != nil {
+		return err
+	}
+	defer jsonFile.Close()
+
+	scanner := bufio.NewScanner(jsonFile)
+	scanner.Scan() // Skip the first line
+
+	fieldnames := []string{}
+	dataList := []map[string]interface{}{}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		var data map[string]interface{}
+		err := json.Unmarshal([]byte(line), &data)
+		if err != nil {
+			return err
+		}
+
+		for key := range data {
+			found := false
+			for _, field := range fieldnames {
+				if field == key {
+					found = true
+					break
+				}
+			}
+			if !found {
+				fieldnames = append(fieldnames, key)
+			}
+		}
+		dataList = append(dataList, data)
+	}
+
+	csvFile, err := os.Create(outputFile)
+	if err != nil {
+		return err
+	}
+	defer csvFile.Close()
+
+	writer := csv.NewWriter(csvFile)
+	defer writer.Flush()
+
+	err = writer.Write(fieldnames)
+	if err != nil {
+		return err
+	}
+
+	for _, data := range dataList {
+		row := make([]string, len(fieldnames))
+		for i, field := range fieldnames {
+			if value, ok := data[field]; ok {
+				row[i] = fmt.Sprint(value)
+			} else {
+				row[i] = ""
+			}
+		}
+		err := writer.Write(row)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func bundling(scene *scenario.Scenario) {
 	gotError := false
 	errs := [4]error{}
@@ -555,7 +657,14 @@ func bundling(scene *scenario.Scenario) {
 		errs[0] = os.Rename(scnMap[scene.UUID.String()].inputDir+"/"+scene.UUID.String()+".yaml", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".yaml")
 		errs[1] = os.Rename(scnMap[scene.UUID.String()].captureDir+"/"+scene.UUID.String()+".pcap", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".pcap")
 		errs[2] = os.Rename(scnMap[scene.UUID.String()].transformDir+"/"+scene.UUID.String()+".pcap_Flow.csv", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".pcap_Flow.csv")
-		errs[3] = os.Rename(scnMap[scene.UUID.String()].transformDir+"/"+scene.UUID.String()+".joy.json", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".joy.json")
+		//errs[3] = os.Rename(scnMap[scene.UUID.String()].transformDir+"/"+scene.UUID.String()+".joy.json", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".joy.json")
+		jsonFile := scnMap[scene.UUID.String()].transformDir + "/" + scene.UUID.String() + ".joy.json"
+		csvFile := scnMap[scene.UUID.String()].outputDir + "/" + scene.UUID.String() + ".joy.csv"
+		errs[3] = convertJSONToCSV(jsonFile, csvFile)
+		if errs[3] == nil {
+			_ = os.Remove(jsonFile) // Delete the original JSON file after conversion
+		}
+
 	}
 
 	for i, err := range errs {
@@ -677,6 +786,7 @@ func bundledFunction(scnUUID string) {
 	podNames := []string{"joy", "cicflowmeter"} // We can Add other Processing Pods Like Argus
 
 	var wgCreatePod sync.WaitGroup
+	var printOnce sync.Once
 	for _, podName := range podNames {
 		exists, err := kubeapi.PodExists(podName)
 		if err != nil {
@@ -688,10 +798,17 @@ func bundledFunction(scnUUID string) {
 			go func(name string) {
 				defer wgCreatePod.Done()
 				podspec := scenario.FlowProcessPod(name)
-				_, _ = kubeapi.CreateRunningPod(podspec, true)
+				_, _, _ = kubeapi.CreateRunningPod(podspec, true)
+				printOnce.Do(func() {
+					fmt.Printf("Pod %s created\n", name)
+				})
 			}(podName)
 		} else {
-			fmt.Printf("Pod %s already exists\n", podName)
+
+			printOnce.Do(func() {
+				fmt.Printf("Pod %s already exists\n", podName)
+			})
+
 		}
 	}
 

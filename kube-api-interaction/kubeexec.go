@@ -3,7 +3,6 @@ package kubeapi
 import (
 	"bytes"
 	"io"
-	"log"
 	"net/url"
 	"strings"
 
@@ -106,7 +105,6 @@ func ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName stri
 //   - stderr: A string containing the standard error output of the executed command.
 func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) (string, string) {
 	stdout, stderr, _ := ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName, cmd...)
-	log.Printf("Exec stderr: %q", stderr)
 	return stdout, stderr
 }
 
@@ -153,4 +151,5 @@ func execute(method string, url *url.URL, config *rest.Config, stdin io.Reader, 
 		Stderr: stderr,
 		Tty:    tty,
 	})
+
 }

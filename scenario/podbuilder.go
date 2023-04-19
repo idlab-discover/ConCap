@@ -3,12 +3,14 @@ package scenario
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -211,6 +213,7 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 			},
 			RestartPolicy: "Never",
 			Containers: []apiv1.Container{
+
 				{
 					Name:  scn.Target.Name,
 					Image: scn.Target.Image,
@@ -234,7 +237,22 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 						},
 					},
 				},
+				{
+					Name:  "healtcheck",
+					Image: "oclemens/health-sidecar:1.3",
+					Env: []apiv1.EnvVar{
+						{
+							Name:  "TARGET_HOST",
+							Value: "localhost",
+						},
+						{
+							Name:  "TARGET_PORT",
+							Value: strconv.Itoa(int(scn.Target.Ports[0])),
+						},
+					},
+				},
 			},
+
 			Volumes: []apiv1.Volume{
 				{
 					Name: "nfs-volume",
