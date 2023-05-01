@@ -238,8 +238,8 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 					},
 				},
 				{
-					Name:  "healtcheck",
-					Image: "oclemens/health-sidecar:1.3",
+					Name:  "healthcheck",
+					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/health-sidecar:latest",
 					Env: []apiv1.EnvVar{
 						{
 							Name:  "TARGET_HOST",
@@ -249,6 +249,94 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 							Name:  "TARGET_PORT",
 							Value: strconv.Itoa(int(scn.Target.Ports[0])),
 						},
+					},
+				},
+			},
+
+			Volumes: []apiv1.Volume{
+				{
+					Name: "nfs-volume",
+					VolumeSource: apiv1.VolumeSource{
+						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc-nfs",
+							ReadOnly:  false,
+						},
+					},
+				},
+			},
+		},
+	}
+	targetPodCount++
+	totalPods++
+	return pod
+}
+
+// TargetPod takes a Scenario specification and makes a pod with a sole target-container.
+func TargetPodWithSupport(scn *Scenario, captureDir string) *apiv1.Pod {
+
+	pod := &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scn.UUID.String() + "-target-" + fmt.Sprint(targetPodCount),
+			Namespace: apiv1.NamespaceAll,
+			Labels: map[string]string{
+				"containercap": "target-pod",
+				"category":     string(scn.Target.Category),
+				"scenarioType": string(scn.ScenarioType),
+				"idle":         "false",
+			},
+		},
+
+		Spec: apiv1.PodSpec{
+			ImagePullSecrets: []apiv1.LocalObjectReference{
+				{Name: "idlab-gitlab"},
+			},
+			RestartPolicy: "Never",
+			Containers: []apiv1.Container{
+
+				{
+					Name:  scn.Target.Name,
+					Image: scn.Target.Image,
+					Stdin: true,
+					TTY:   true,
+					SecurityContext: &apiv1.SecurityContext{
+						Privileged: func() *bool { b := true; return &b }(),
+					},
+
+					Ports: []apiv1.ContainerPort{
+						{
+							Name:          RandStringRunes(8),
+							Protocol:      apiv1.ProtocolTCP,
+							ContainerPort: scn.Target.Ports[0],
+						},
+					},
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "nfs-volume",
+							MountPath: "/Containercap",
+						},
+					},
+				},
+				{
+					Name:  "healthcheck",
+					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/health-sidecar:latest",
+					Env: []apiv1.EnvVar{
+						{
+							Name:  "TARGET_HOST",
+							Value: "localhost",
+						},
+						{
+							Name:  "TARGET_PORT",
+							Value: strconv.Itoa(int(scn.Target.Ports[0])),
+						},
+					},
+				},
+
+				{
+					Name:  "iptables-sidecar",
+					Image: "oclemens/iptables:1.0",
+					Command: []string{
+						"/bin/bash",
+						"/etc/iptables-update.sh",
 					},
 				},
 			},

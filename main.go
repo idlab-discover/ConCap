@@ -163,13 +163,13 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		defer Podwg.Done()
 		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
 		//time.Sleep(2 * time.Second)
-		if scn.Target.Category == "ssh" {
-			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart")
+		if scn.Target.Category == "custom" {
+			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog restart")
 			//stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
 			if stde != "" {
 				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 			}
-			fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
+			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
 		}
 	}()
 
@@ -236,7 +236,7 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		if stde != "" {
 			fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 		}
-		fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stderr: " + stde)
+		//fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stderr: " + stde)
 
 		//######################################################################//
 		//								STOP ATTACK								//
@@ -299,13 +299,13 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		defer Podwg.Done()
 		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
 		time.Sleep(2 * time.Second)
-		if scn.Target.Category == "ssh" {
+		if scn.Target.Category == "custom" {
 			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog restart")
 
 			if stde != "" {
 				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 			}
-			fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
+			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
 		}
 	}()
 
@@ -331,7 +331,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 				if stde != "" {
 					fmt.Println(scn.UUID.String() + " : " + scn.Support[index].Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 				}
-				fmt.Println(scn.UUID.String() + " : " + scn.Support[index].Name + " : stderr: " + stde)
+				//fmt.Println(scn.UUID.String() + " : " + scn.Support[index].Name + " : stderr: " + stde)
 			}
 
 		}(index, helperpod)
@@ -381,7 +381,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		//######################################################################//
 
 		go capengi.PcapCreator2(scn, scnMap[scn.UUID.String()].captureDir+"/"+scn.UUID.String()+".pcap", attackpod, targetpod, supportpod...)
-		fmt.Println("Loading GoPacket...\n")
+		fmt.Println("Loading GoPacket...")
 
 		ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.RUNNING, Time: time.Now()})
 
@@ -418,15 +418,16 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		scn.StartTime = time.Now()
 		//stdo, stde := kubeapi.ExecShellInContainer("default", supportpod.Uuid, scn.Support, bufSupport.String())                 //scn.Attacker.AtkCommand) //_ was stdo
 
-		kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+bufAttack.String())
+		stdo, stde := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+bufAttack.String())
 
-		/*if stde != "" {
+		if stde != "" {
 			fmt.Println("\t" + scn.UUID.String() + " : " + scn.Support[0].Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 		}
-		if stdeAttack != "" {
-			fmt.Println("\t" + scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdoAttack + "\n\t stderr: " + stdeAttack)
-		}
-		fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name) //+ " : stderr: " + stde
+		/*
+			if stdeAttack != "" {
+				fmt.Println("\t" + scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdoAttack + "\n\t stderr: " + stdeAttack)
+			}
+			fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name) //+ " : stderr: " + stde
 		*/
 		//######################################################################//
 		//								STOP ATTACK								//
@@ -434,19 +435,19 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 
 		scn.StopTime = time.Now()
 
-		for _, podspec := range supportpod {
+		/*for _, podspec := range supportpod {
 			kubeapi.AddLabelToRunningPod("idle", "true", podspec.Uuid)
 		}
-		/*
-			for _, podspec:= range supportpodspec{
-				err = kubeapi.DeletePodAndPVC(podspec.ObjectMeta.Name)
-				if err != nil {
-					fmt.Println(err.Error())
-				} else {
-					scenario.MinusSupportPodCount()
-				}
-			}
 		*/
+
+		for _, podspec := range supportpodspec {
+			err = kubeapi.DeletePod(podspec.ObjectMeta.Name)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				scenario.MinusSupportPodCount()
+			}
+		}
 
 		kubeapi.AddLabelToRunningPod("idle", "true", attackpod.Uuid)
 
@@ -480,7 +481,7 @@ func CreateAttackPod(scn *scenario.Scenario, captureDir string) kubeapi.PodSpec 
 
 func CreateTargetPod(scn *scenario.Scenario, captureDir string, targetpodspec *apiv1.Pod) (apiv1.Pod, kubeapi.PodSpec) {
 
-	targetpodspec = scenario.TargetPod(scn, captureDir)
+	targetpodspec = scenario.TargetPodWithSupport(scn, captureDir)
 	targetpod, _, _ := kubeapi.CreateRunningPod(targetpodspec, false)
 	fmt.Println(" Created target pod: " + targetpod.Name + " with IP: " + targetpod.PodIP + "\n")
 	return *targetpodspec, targetpod
@@ -497,7 +498,7 @@ func checkHealth(url string, headerName string, headerValue string, attackerpod 
 	req.Header.Set(headerName, headerValue)
 
 	for {
-		time.Sleep(4 * time.Second)
+		time.Sleep(5 * time.Second)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		req = req.WithContext(ctx)
