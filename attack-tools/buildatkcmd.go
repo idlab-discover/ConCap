@@ -92,6 +92,10 @@ func fetchAttacker(category scenario.ScenarioType, name string) (*AttackCommandB
 			a = NewTorshammer()
 		case "metasploit":
 			a = NewMetasploit()
+		case "goldeneye":
+			a = NewGoldeneye()
+		case "slowhttptest":
+			a = NewSlowHTTPTest()
 		default:
 			return nil, errors.New("attacker not recognized")
 		}
