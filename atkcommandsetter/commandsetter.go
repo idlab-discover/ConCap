@@ -24,6 +24,7 @@ func GenerateAttackCommand(scn *scenario.Scenario) string {
 
 	// Extract target IP address from scenario struct and store into target variable
 	target := "{{.TargetAddress}}"
+	targetPort := "-p " + string(scn.Target.Ports[0])
 
 	// Loop through the atk command parts array slice
 	for i, part := range atk {
@@ -36,6 +37,12 @@ func GenerateAttackCommand(scn *scenario.Scenario) string {
 		} else if strings.Contains(part, "127.0.0.1") {
 			atk[i] = strings.Replace(part, "127.0.0.1", target, -1)
 
+		} else if strings.Contains(part, "-u http://localhost/") {
+			atk[i] = strings.Replace(part, "-u http://localhost/", "-u "+target, -1)
+
+		}
+		if scn.ScenarioType == "DoS" && strings.Contains(part, "-p 80") {
+			atk[i] = strings.Replace(part, "-p 80", targetPort, -1)
 		}
 	}
 

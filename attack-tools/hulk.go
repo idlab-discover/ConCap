@@ -24,6 +24,9 @@ func (hulk Hulk) BuildAtkCommand() []string {
 	rand.Seed(time.Now().UnixNano())
 	hulk.parts = []string{"python3", "hulk.py"}
 	hulk.parts = append(hulk.parts, "-site", hulk.targetDomain, "2>/dev/null")
+	if rand.Float32() < 0.33 {
+		hulk.parts = append(hulk.parts, "-data", "peakaboo")
+	}
 	return hulk.parts
 }
 
