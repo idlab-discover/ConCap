@@ -18,7 +18,7 @@ type SlowHTTPTest struct {
 }
 
 func NewSlowHTTPTest() SlowHTTPTest {
-	slowHTTPTest := SlowHTTPTest{weight: 10, scenarioType: scenario.Scanning, targetDomain: "-u http://localhost/"}
+	slowHTTPTest := SlowHTTPTest{weight: 10, scenarioType: scenario.Scanning, targetDomain: "-u http://{{.TargetAddress}}"}
 	slowHTTPTest.parts = []string{"slowhttptest"}
 	slowHTTPTest.modes = []string{"-H", "-B", "-R", "-X"}
 	slowHTTPTest.verbs = []string{"GET", "POST"}
