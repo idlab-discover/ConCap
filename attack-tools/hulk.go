@@ -15,7 +15,7 @@ type Hulk struct {
 }
 
 func NewHulk() Hulk {
-	hulk := Hulk{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://localhost"}
+	hulk := Hulk{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://{{.TargetAddress}}"}
 	return hulk
 }
 

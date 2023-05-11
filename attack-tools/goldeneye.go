@@ -18,7 +18,7 @@ type Goldeneye struct {
 }
 
 func NewGoldeneye() Goldeneye {
-	goldeneye := Goldeneye{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://localhost"}
+	goldeneye := Goldeneye{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://{{.TargetAddress}}"}
 	goldeneye.method = []string{"get", "post", "random"}
 	goldeneye.nossl = []string{"True", "False"}
 	return goldeneye

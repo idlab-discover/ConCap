@@ -16,7 +16,7 @@ type Slowloris struct {
 }
 
 func NewSlowloris() Slowloris {
-	slowloris := Slowloris{weight: 10, scenarioType: scenario.Scanning, targetDomain: "localhost"}
+	slowloris := Slowloris{weight: 10, scenarioType: scenario.Scanning, targetDomain: "{{.TargetAddress}}"}
 	return slowloris
 }
 
