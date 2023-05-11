@@ -16,5 +16,8 @@ spec:
     - hard
     - nfsvers=4.1
   nfs:
-    server: "10.10.131.44"
-    path: "/mnt/ContainerCap/"
+    #server: "10.10.131.44"
+    #path: "/mnt/ContainerCap/"
+    server: "10.2.0.75"
+    path: "/groups/ilabt-imec-be/containercap/ContainerCap/nfs/"
+

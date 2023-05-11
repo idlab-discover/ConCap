@@ -208,6 +208,10 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 		},
 
 		Spec: apiv1.PodSpec{
+			SecurityContext: &apiv1.PodSecurityContext{
+				FSGroup: int64Ptr(1000),
+			},
+
 			ImagePullSecrets: []apiv1.LocalObjectReference{
 				{Name: "idlab-gitlab"},
 			},
@@ -234,6 +238,12 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 						{
 							Name:      "nfs-volume",
 							MountPath: "/Containercap",
+						},
+					},
+					Env: []apiv1.EnvVar{
+						{
+							Name:  "TARGETPOD_IP",
+							Value: "0.0.0.0",
 						},
 					},
 				},
@@ -550,3 +560,4 @@ func RandStringRunes(n int) string {
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+func int64Ptr(i int64) *int64 { return &i }

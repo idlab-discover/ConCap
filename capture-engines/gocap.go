@@ -117,10 +117,9 @@ func PcapCreator(scn *scenario.Scenario, outputPath string, pods ...kubeapi.PodS
 		case <-ticker:
 			if state := ledger.GetScenarioState(scn.UUID.String()); state == string(ledger.COMPLETED) {
 				fmt.Println("GoCapture Completed...")
-				close(packetBuffer)
-				handle.Close()
-				f.Close()
 				close(done)
+				close(packetBuffer)
+
 				return
 			}
 		}
@@ -218,10 +217,9 @@ func PcapCreator2(scn *scenario.Scenario, outputPath string, attackpod kubeapi.P
 		case <-ticker:
 			if state := ledger.GetScenarioState(scn.UUID.String()); state == string(ledger.COMPLETED) {
 				fmt.Println("GoCapture Completed...")
-				close(packetBuffer)
-				handle.Close()
-				f.Close()
 				close(done)
+				close(packetBuffer)
+
 				return
 			}
 		}

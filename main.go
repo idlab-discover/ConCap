@@ -481,7 +481,7 @@ func CreateAttackPod(scn *scenario.Scenario, captureDir string) kubeapi.PodSpec 
 
 func CreateTargetPod(scn *scenario.Scenario, captureDir string, targetpodspec *apiv1.Pod) (apiv1.Pod, kubeapi.PodSpec) {
 
-	targetpodspec = scenario.TargetPodWithSupport(scn, captureDir)
+	targetpodspec = scenario.TargetPod(scn, captureDir)
 	targetpod, _, _ := kubeapi.CreateRunningPod(targetpodspec, false)
 	fmt.Println(" Created target pod: " + targetpod.Name + " with IP: " + targetpod.PodIP + "\n")
 	return *targetpodspec, targetpod
@@ -907,15 +907,15 @@ func main() {
 			filename := strings.TrimSuffix(filepath.Base(path), filepath.Ext(filepath.Base(path)))
 
 			if parentPath != "" {
-				parentPath = parentPath + "/"
+				//parentPath = parentPath + "/"
 			}
 
 			if strings.Contains(GetFlags().Selection, parentPath) || GetFlags().Selection == "all" {
 				scnMap[filename] = &scnMeta{
 					inputDir:     mountLoc + containercapScenarios + parentPath,
-					outputDir:    mountLoc + containercapCompleted + parentPath + filename,
-					captureDir:   mountLoc + containercapCaptures + parentPath + filename,
-					transformDir: mountLoc + containercapTransform + parentPath + filename,
+					outputDir:    mountLoc + containercapCompleted + parentPath + "/" + filename,
+					captureDir:   mountLoc + containercapCaptures + parentPath + "/" + filename,
+					transformDir: mountLoc + containercapTransform + parentPath + "/" + filename,
 				}
 			}
 		}
