@@ -36,9 +36,7 @@ func (goldeneye Goldeneye) BuildAtkCommand() []string {
 	if rand.Float32() < 0.33 {
 		goldeneye.parts = append(goldeneye.parts, "-n", fmt.Sprint(goldeneye.nossl[rand.Intn(len(goldeneye.nossl))]))
 	}
-	if rand.Float32() < 0.33 {
-		goldeneye.parts = append(goldeneye.parts, "-https")
-	}
+
 	return goldeneye.parts
 }
 
