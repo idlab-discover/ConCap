@@ -505,7 +505,7 @@ func checkHealth(url string, headerName string, headerValue string, attackerpod 
 
 		resp, err := client.Do(req)
 		if err != nil || resp.StatusCode != http.StatusOK || ctx.Err() == context.DeadlineExceeded {
-			kubeapi.ExecShellInContainer("default", attackerpod.Uuid, attackerpod.ContainerName, "pkill -n -e")
+			kubeapi.ExecShellInContainer("default", attackerpod.Uuid, attackerpod.ContainerName, "killall -u root")
 			fmt.Println("The Target is down")
 			return false
 		}
