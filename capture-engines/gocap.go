@@ -77,7 +77,6 @@ func PcapCreator(scn *scenario.Scenario, outputPath string, pods ...kubeapi.PodS
 
 	// Set the device filter based on the scenario's info
 	SetFilter(handle, filterStr)
-
 	// Start processing packets
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	fmt.Println("Starting capturing...")
@@ -119,7 +118,6 @@ func PcapCreator(scn *scenario.Scenario, outputPath string, pods ...kubeapi.PodS
 				fmt.Println("GoCapture Completed...")
 				close(done)
 				close(packetBuffer)
-
 				return
 			}
 		}

