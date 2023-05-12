@@ -525,7 +525,7 @@ func FlowProcessPod(name string) *apiv1.Pod {
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "nfs-volume",
-							MountPath: "/mnt/ContainerCap",
+							MountPath: "ContainerCap",
 						},
 					},
 				},
