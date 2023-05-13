@@ -15,14 +15,14 @@ type Hulk struct {
 }
 
 func NewHulk() Hulk {
-	hulk := Hulk{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://{{.TargetAddress}}"}
+	hulk := Hulk{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://{{.TargetAddress}}:8080/"}
 	return hulk
 }
 
 // Form more flags: https://github.com/grafov/hulk
 func (hulk Hulk) BuildAtkCommand() []string {
 	rand.Seed(time.Now().UnixNano())
-	hulk.parts = []string{"python3", "hulk.py"}
+	hulk.parts = []string{"hulk"}
 	hulk.parts = append(hulk.parts, "-site", hulk.targetDomain, "2>/dev/null")
 	if rand.Float32() < 0.33 {
 		hulk.parts = append(hulk.parts, "-data", "peakaboo")
