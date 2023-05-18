@@ -18,7 +18,7 @@ type Rudy struct {
 }
 
 func NewRudy() Rudy {
-	rudy := Rudy{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://localhost:8080"}
+	rudy := Rudy{weight: 10, scenarioType: scenario.Scanning, targetDomain: "http://{{.TargetAddress}}:8080"}
 	rudy.length = []int32{1048576, 62500, 31250, 2097152, 15625}
 	rudy.numberOfConnections = []int32{100, 200, 250, 500, 1000, 750}
 	rudy.delay = []int32{2, 3, 4, 5, 6, 7, 8, 9}
