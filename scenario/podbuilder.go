@@ -10,7 +10,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -47,6 +46,8 @@ func MinusAttackerPodCount() {
 // Checks the amount of active ContainerCap pods.
 // Hardcoded maximum of X active pods. In order to accomodate for scenarios, can be extended, but if the amount of pods
 // for a new scenario would be more than the hardcoded value, the scenario cannot be added.
+// This needs to be dynamically chosen in the feature.
+// This was not tested yet
 func CheckAmountOfPods() bool {
 	if totalPods <= 50 {
 		return true
@@ -60,84 +61,6 @@ func CheckAmountOfPods() bool {
 		}
 	}
 	return false
-}
-
-// ScenarioPod takes a Scenario specification and turns it into a pod
-// In the current implementation one pod = one experiment and one experiment is one invocation of an attack tool against one target
-// All required metadata and containers are part of this one pod
-// This trick also allows running tools on 127.0.0.1 because the containers in the pod share the same network
-// The redesign will decouple this for flexiblity and resource efficiency reasons
-func ScenarioPod(scn *Scenario, captureDir string) *apiv1.Pod {
-	pod := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      scn.UUID.String(),
-			Namespace: apiv1.NamespaceDefault,
-			Labels: map[string]string{
-				"containercap": "default-pod",
-			},
-		},
-		Spec: apiv1.PodSpec{
-			ImagePullSecrets: []apiv1.LocalObjectReference{
-				{Name: "containercap"},
-			},
-			Containers: []apiv1.Container{
-				{
-					Name:  scn.Target.Name,
-					Image: scn.Target.Image,
-					Ports: []apiv1.ContainerPort{
-						{
-							Name:          RandStringRunes(8),
-							Protocol:      apiv1.ProtocolTCP,
-							ContainerPort: scn.Target.Ports[0],
-						},
-					},
-					// Stdin: true,
-					// TTY:   true,
-				},
-				{
-					Name:  scn.Attacker.Name,
-					Image: scn.Attacker.Image,
-					Stdin: true,
-					TTY:   true,
-				},
-				{
-					Name:  scn.CaptureEngine.Name,
-					Image: scn.CaptureEngine.Image,
-					// The Stdin and TTY fields are important for debugging purposes, without them, you can't access the containers through kubectl
-					Stdin:   true,
-					TTY:     true,
-					Command: []string{"tcpdump", "-i", scn.CaptureEngine.Interface, "-n", "-w", captureDir + "/" + scn.UUID.String() + ".pcap"},
-					Lifecycle: &apiv1.Lifecycle{
-						PreStop: &apiv1.LifecycleHandler{
-							Exec: &apiv1.ExecAction{
-								// This trick allows a clean exit of tcpdump, without the pcaps are often corrupted or not saved at all
-								Command: []string{"/bin/sh", "-c", "kill -15 $(ps aux | grep \"[t]cpdump\" | tr -s \" \" | cut -d \" \" -f 2)"},
-							},
-						},
-					},
-					VolumeMounts: []apiv1.VolumeMount{
-						{
-							Name:      "nfs-volume",
-							MountPath: "/storage/nfs/L/kube",
-						},
-					},
-				},
-			},
-			Volumes: []apiv1.Volume{
-				{
-					Name: "nfs-volume",
-					VolumeSource: apiv1.VolumeSource{
-						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "pvc-nfs",
-							ReadOnly:  false,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return pod
 }
 
 // AttackPod takes a Scenario specification and makes a pod with a sole attack-container.
@@ -281,94 +204,6 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 	return pod
 }
 
-// TargetPod takes a Scenario specification and makes a pod with a sole target-container.
-func TargetPodWithSupport(scn *Scenario, captureDir string) *apiv1.Pod {
-
-	pod := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      scn.UUID.String() + "-target-" + fmt.Sprint(targetPodCount),
-			Namespace: apiv1.NamespaceAll,
-			Labels: map[string]string{
-				"containercap": "target-pod",
-				"category":     string(scn.Target.Category),
-				"scenarioType": string(scn.ScenarioType),
-				"idle":         "false",
-			},
-		},
-
-		Spec: apiv1.PodSpec{
-			ImagePullSecrets: []apiv1.LocalObjectReference{
-				{Name: "idlab-gitlab"},
-			},
-			RestartPolicy: "Never",
-			Containers: []apiv1.Container{
-
-				{
-					Name:  scn.Target.Name,
-					Image: scn.Target.Image,
-					Stdin: true,
-					TTY:   true,
-					SecurityContext: &apiv1.SecurityContext{
-						Privileged: func() *bool { b := true; return &b }(),
-					},
-
-					Ports: []apiv1.ContainerPort{
-						{
-							Name:          RandStringRunes(8),
-							Protocol:      apiv1.ProtocolTCP,
-							ContainerPort: scn.Target.Ports[0],
-						},
-					},
-					VolumeMounts: []apiv1.VolumeMount{
-						{
-							Name:      "nfs-volume",
-							MountPath: "/Containercap",
-						},
-					},
-				},
-				{
-					Name:  "healthcheck",
-					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/health-sidecar:latest",
-					Env: []apiv1.EnvVar{
-						{
-							Name:  "TARGET_HOST",
-							Value: "localhost",
-						},
-						{
-							Name:  "TARGET_PORT",
-							Value: strconv.Itoa(int(scn.Target.Ports[0])),
-						},
-					},
-				},
-
-				{
-					Name:  "iptables-sidecar",
-					Image: "oclemens/iptables:1.0",
-					Command: []string{
-						"/bin/bash",
-						"/etc/iptables-update.sh",
-					},
-				},
-			},
-
-			Volumes: []apiv1.Volume{
-				{
-					Name: "nfs-volume",
-					VolumeSource: apiv1.VolumeSource{
-						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "pvc-nfs",
-							ReadOnly:  false,
-						},
-					},
-				},
-			},
-		},
-	}
-	targetPodCount++
-	totalPods++
-	return pod
-}
-
 // SupportPods takes a Scenario specification and makes pods with a sole support-container.
 func SupportPods(scn *Scenario, captureDir string, podIP string) []*apiv1.Pod {
 	pods := make([]*apiv1.Pod, len(scn.Support))
@@ -442,6 +277,7 @@ func SupportPods(scn *Scenario, captureDir string, podIP string) []*apiv1.Pod {
 // This function takes in a Scenario and a string representing
 // the directory where captured data will be stored. It returns a pointer to an
 // appsv1.Deployment object.
+// Not tested => will probably be removed
 func AttackDeployment(scn *Scenario, captureDir string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{},

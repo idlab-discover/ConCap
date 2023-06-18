@@ -21,8 +21,6 @@ import (
 func JoyProcessing(captureDir string, transformDir string, wg *sync.WaitGroup, pod kubeapi.PodSpec, scenarioUUID string) {
 	defer wg.Done()
 	fmt.Println("JOY: received order for ", scenarioUUID)
-	//fmt.Println(captureDir + "/" + scenarioUUID + ".pcap")
-	//kubeapi.ExecShellInContainer("default", pod.Uuid, pod.ContainerName, "./joy username=kali promisc=1 retain=1 count=20 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 "+captureDir+"/"+scenarioUUID+".pcap"+" | gunzip > "+transformDir+"/"+scenarioUUID+".joy.json") // +"/ContainerCap/containercap-captures/"+scenarioUUID+"/"+scenarioUUID+".pcap"+" | gunzip > " + "/ContainerCap/containercap-transformed/"+scenarioUUID+"/"+scenarioUUID+".joy.json"// We can use a extra filter here like this: bpf='host 10.32.0.8 and host 10.32.0.9 and not arp' => We should make a seperate file for getting the filter
 	kubeapi.ExecShellInContainer("default", pod.Uuid, pod.ContainerName, "./joy username=kali promisc=1 retain=1 count=20 bidir=1 num_pkts=200 dist=1 cdist=none entropy=1 wht=0 example=0 dns=1 ssh=1 tls=1 dhcp=1 dhcpv6=1 http=1 ike=1 payload=1 salt=0 ppi=0 fpx=0 verbosity=4 "+"/ContainerCap/containercap-captures/"+scenarioUUID+"/"+scenarioUUID+".pcap"+" | gunzip > "+"/ContainerCap/containercap-transformed/"+scenarioUUID+"/"+scenarioUUID+".joy.json")
 	kubeapi.AddLabelToRunningPod("idle", "true", pod.Uuid)
 }
@@ -41,8 +39,6 @@ func JoyProcessing(captureDir string, transformDir string, wg *sync.WaitGroup, p
 func CicProcessing(captureDir string, transformDir string, wg *sync.WaitGroup, pod kubeapi.PodSpec, scenarioUUID string) {
 	defer wg.Done()
 	fmt.Println("CIC: received order for ", scenarioUUID)
-	//kubeapi.ExecShellInContainer("default", pod.Uuid, pod.ContainerName, "./cfm "+captureDir+"/"+scenarioUUID+".pcap "+transformDir)
 	kubeapi.ExecShellInContainer("default", pod.Uuid, pod.ContainerName, "./cfm "+"/ContainerCap/containercap-captures/"+scenarioUUID+"/"+scenarioUUID+".pcap "+"/ContainerCap/containercap-transformed/"+scenarioUUID+"/")
-
 	kubeapi.AddLabelToRunningPod("idle", "true", pod.Uuid)
 }

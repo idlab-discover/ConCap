@@ -42,7 +42,6 @@ func (rudy Rudy) BuildAtkCommand() []string {
 	if rand.Float32() < 0.33 {
 		rudy.parts = append(rudy.parts, "-d", fmt.Sprint(rudy.delay[rand.Intn(len(rudy.delay))]))
 	}
-	//rudy.parts = append(rudy.parts, "-m", rudy.method[rand.Intn(len(rudy.method))])
 
 	return rudy.parts
 }

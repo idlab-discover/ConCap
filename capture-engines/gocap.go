@@ -137,7 +137,7 @@ func PcapCreator(scn *scenario.Scenario, outputPath string, pods ...kubeapi.PodS
 // CreatePcap creates an instance of pcapgo to capture traffic on the weave interface.
 // It writes to the given output file and applies a filter based on the included pods.
 // The filter takes in AttackAddress, TargetAddress, and SupportAddress.
-func PcapCreator2(scn *scenario.Scenario, outputPath string, attackpod kubeapi.PodSpec, targetpod kubeapi.PodSpec, supportpods ...kubeapi.PodSpec) {
+func PcapCreatorWithSupport(scn *scenario.Scenario, outputPath string, attackpod kubeapi.PodSpec, targetpod kubeapi.PodSpec, supportpods ...kubeapi.PodSpec) {
 
 	// Open output pcap file and write header
 	f, err := os.Create(outputPath)
@@ -252,6 +252,7 @@ func SetFilter(handle *pcap.Handle, filter string) {
 }
 
 // Helper function to display all available devices.
+// Not used
 func DisplayAllDevices() {
 	// Find all devices
 	devices, err := pcap.FindAllDevs()

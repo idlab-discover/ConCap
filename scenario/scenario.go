@@ -73,20 +73,6 @@ type CaptureEngine struct {
 
 // ReadScenario will unmarshall the yaml back into the in-memory Scenario representation
 func ReadScenario(r io.Reader) *Scenario {
-	S := Scenario{}
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		log.Fatalf("error1: %v", err.Error())
-	}
-	err = yaml.UnmarshalStrict(b, &S)
-	if err != nil {
-		log.Fatalf("error2: %v", err.Error())
-	}
-	//fmt.Printf("Scenario struct %+v\n", S)
-	return &S
-}
-
-func ReadScenario2(r io.Reader) *Scenario {
 	s := Scenario{}
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -138,6 +124,7 @@ type Container struct {
 	Path string `json:"path"`
 }
 
+// Tested and works but only with latest version
 func SearchImage(attackerName string) (string, error) {
 	git, _ := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"), gitlab.WithBaseURL("https://gitlab.ilabt.imec.be/api/v4"))
 	projectID := 880
@@ -170,6 +157,7 @@ func SearchImage(attackerName string) (string, error) {
 	return "", err
 }
 
+// Tested and works
 func GetTimeout(input string) string {
 	var seconds int
 

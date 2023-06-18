@@ -96,11 +96,7 @@ func init() {
 
 type IPAddress struct {
 	TargetAddress net.IP
-	//StartTargetRange net.IP
-	//EndTargetRange net.IP
-	SupportIP []net.IP
-	//StartSupportRange net.IP
-	//EndSupportRange net.IP
+	SupportIP     []net.IP
 }
 
 // loadScenarios will read scenarios from disk and put their Scenario representation in a channel
@@ -114,7 +110,7 @@ func loadScenarios(filename string, wg *sync.WaitGroup) *scenario.Scenario {
 		log.Println("Couldn't read file" + scnMap[filename].inputDir + "/" + filename + ".yaml")
 	}
 	defer fh.Close()
-	scn := scenario.ReadScenario2(fh)
+	scn := scenario.ReadScenario(fh)
 	scn.UUID, err = uuid.Parse(strings.Split(filename, ".")[0])
 	if err != nil {
 		log.Println("File had incorrect UUID filename")
@@ -132,11 +128,9 @@ func loadScenarios(filename string, wg *sync.WaitGroup) *scenario.Scenario {
 func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	//syscall.Umask(0) // https://stackoverflow.com/questions/14249467/os-mkdir-and-os-mkdirall-permissions
 	if err := os.MkdirAll(scnMap[scn.UUID.String()].transformDir, 0777); err != nil {
 		fmt.Println(err.Error())
 	}
-	//syscall.Umask(0)
 	if err := os.MkdirAll(scnMap[scn.UUID.String()].captureDir, 0777); err != nil {
 		fmt.Println(err.Error())
 	}
@@ -162,14 +156,11 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	go func() {
 		defer Podwg.Done()
 		targetpodspec, targetpod = CreateTargetPod(scn, scnMap[scn.UUID.String()].captureDir, &targetpodspec)
-		//time.Sleep(2 * time.Second)
 		if scn.Target.Category == "custom" {
 			stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog restart")
-			//stdo, stde := kubeapi.ExecShellInContainer("default", targetpod.Uuid, scn.Target.Name, "sudo service rsyslog stop && sudo service rsyslog restart && sleep 4 && cat var/log/auth.log")
 			if stde != "" {
 				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 			}
-			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
 		}
 	}()
 
@@ -236,7 +227,6 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		if stde != "" {
 			fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 		}
-		//fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stderr: " + stde)
 
 		//######################################################################//
 		//								STOP ATTACK								//
@@ -267,7 +257,6 @@ func startScenario(scn *scenario.Scenario, wg *sync.WaitGroup) {
 func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	// https://stackoverflow.com/questions/14249467/os-mkdir-and-os-mkdirall-permissions
 	os.MkdirAll(scnMap[scn.UUID.String()].transformDir, 0777)
 	os.MkdirAll(scnMap[scn.UUID.String()].captureDir, 0777)
 
@@ -278,9 +267,10 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	var attackpod kubeapi.PodSpec
 	var targetpod kubeapi.PodSpec
 	var targetpodspec apiv1.Pod
+
 	supportpod := make([]kubeapi.PodSpec, len(scn.Support))
-	//supportpodspec := scenario.SupportPods(scn, scnMap[scn.UUID.String()].captureDir)
 	fmt.Println("There are " + fmt.Sprint(len(scn.Support)) + " support pods found")
+
 	var mu sync.Mutex
 	var supportIPs []net.IP
 
@@ -305,13 +295,13 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 			if stde != "" {
 				fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 			}
-			//fmt.Println(scn.UUID.String() + " : " + scn.Target.Name + " : stderr: " + stde)
 		}
 	}()
 
 	Podwg.Wait()
 
 	supportpodspec := scenario.SupportPods(scn, scnMap[scn.UUID.String()].captureDir, targetpod.PodIP)
+
 	// Create Support Pods
 	for index, helperpod := range supportpodspec {
 		Podwg.Add(1)
@@ -331,7 +321,6 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 				if stde != "" {
 					fmt.Println(scn.UUID.String() + " : " + scn.Support[index].Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 				}
-				//fmt.Println(scn.UUID.String() + " : " + scn.Support[index].Name + " : stderr: " + stde)
 			}
 
 		}(index, helperpod)
@@ -380,7 +369,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		//				STARTING ATTACK	  + 	CREATING PCAP FILE				//
 		//######################################################################//
 
-		go capengi.PcapCreator2(scn, scnMap[scn.UUID.String()].captureDir+"/"+scn.UUID.String()+".pcap", attackpod, targetpod, supportpod...)
+		go capengi.PcapCreatorWithSupport(scn, scnMap[scn.UUID.String()].captureDir+"/"+scn.UUID.String()+".pcap", attackpod, targetpod, supportpod...)
 		fmt.Println("Loading GoPacket...")
 
 		ledger.UpdateState(scn.UUID.String(), ledger.LedgerEntry{State: ledger.RUNNING, Time: time.Now()})
@@ -416,29 +405,15 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 		var command = "timeout " + scn.Attacker.AtkTime + " "
 
 		scn.StartTime = time.Now()
-		//stdo, stde := kubeapi.ExecShellInContainer("default", supportpod.Uuid, scn.Support, bufSupport.String())                 //scn.Attacker.AtkCommand) //_ was stdo
-
 		stdo, stde := kubeapi.ExecShellInContainer("default", attackpod.Uuid, scn.Attacker.Name, command+bufAttack.String())
-
 		if stde != "" {
 			fmt.Println("\t" + scn.UUID.String() + " : " + scn.Support[0].Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 		}
-		/*
-			if stdeAttack != "" {
-				fmt.Println("\t" + scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdoAttack + "\n\t stderr: " + stdeAttack)
-			}
-			fmt.Println(scn.UUID.String() + " : " + scn.Attacker.Name) //+ " : stderr: " + stde
-		*/
 		//######################################################################//
 		//								STOP ATTACK								//
 		//######################################################################//
 
 		scn.StopTime = time.Now()
-
-		/*for _, podspec := range supportpod {
-			kubeapi.AddLabelToRunningPod("idle", "true", podspec.Uuid)
-		}
-		*/
 
 		for _, podspec := range supportpodspec {
 			err = kubeapi.DeletePod(podspec.ObjectMeta.Name)
@@ -465,6 +440,7 @@ func startScenarioWithSupport(scn *scenario.Scenario, wg *sync.WaitGroup) {
 	}
 }
 
+// Can be combined with CreateTargetPod function
 func CreateAttackPod(scn *scenario.Scenario, captureDir string) kubeapi.PodSpec {
 
 	attackpodspec := scenario.AttackPod(scn, captureDir)
@@ -487,6 +463,7 @@ func CreateTargetPod(scn *scenario.Scenario, captureDir string, targetpodspec *a
 	return *targetpodspec, targetpod
 }
 
+// Works with a python script running on the targetpod => should be changed because it doesnt work correctly!!!
 func checkHealth(url string, headerName string, headerValue string, attackerpod kubeapi.PodSpec, scn scenario.Scenario) bool {
 	client := &http.Client{}
 
@@ -569,6 +546,7 @@ func zipSource(source, target string) error {
 	})
 }
 
+// Does not work like it should be. Nested values in the json file can't convert => use a wrapped python script
 func convertJSONToCSV(inputFile, outputFile string) error {
 	jsonFile, err := os.Open(inputFile)
 	if err != nil {
@@ -637,6 +615,7 @@ func convertJSONToCSV(inputFile, outputFile string) error {
 	return nil
 }
 
+// The converted json file should not be written to the zip file.
 func bundling(scene *scenario.Scenario) {
 	gotError := false
 	errs := [4]error{}
@@ -658,7 +637,6 @@ func bundling(scene *scenario.Scenario) {
 		errs[0] = os.Rename(scnMap[scene.UUID.String()].inputDir+"/"+scene.UUID.String()+".yaml", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".yaml")
 		errs[1] = os.Rename(scnMap[scene.UUID.String()].captureDir+"/"+scene.UUID.String()+".pcap", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".pcap")
 		errs[2] = os.Rename(scnMap[scene.UUID.String()].transformDir+"/"+scene.UUID.String()+".pcap_Flow.csv", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".pcap_Flow.csv")
-		//errs[3] = os.Rename(scnMap[scene.UUID.String()].transformDir+"/"+scene.UUID.String()+".joy.json", scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".joy.json")
 		jsonFile := scnMap[scene.UUID.String()].transformDir + "/" + scene.UUID.String() + ".joy.json"
 		csvFile := scnMap[scene.UUID.String()].outputDir + "/" + scene.UUID.String() + ".joy.csv"
 		errs[3] = convertJSONToCSV(jsonFile, csvFile)
@@ -676,7 +654,6 @@ func bundling(scene *scenario.Scenario) {
 	}
 
 	// This function is usable but commented out.
-	//addMetadataToCSV(scnMap[scene.UUID.String()].outputDir+"/"+scene.UUID.String()+".pcap_Flow", scene, scene.UUID.String()+".pcap_Flow")
 
 	name := time.Now().Format("02-01-2006") + "_" + string(scene.ScenarioType) + "_" + string(scene.Attacker.Category) + "_" + scene.UUID.String()
 	if err := zipSource(scnMap[scene.UUID.String()].outputDir, flagstore.MountLoc+"/containercap-completed/"+name+".zip"); err != nil {
@@ -711,7 +688,7 @@ func bundledFunction(scnUUID string) {
 	if ok && value.started { // File already exists in scnMap
 		for {
 			if value.done { // If scenario was already finished, execute (or wait otherwise)
-				//return
+
 				newUUID, err := uuid.NewUUID()
 				if err != nil {
 					fmt.Println("Something went wrong creating a new UUID for scenario: " + filename)
@@ -720,7 +697,7 @@ func bundledFunction(scnUUID string) {
 				if err != nil {
 					fmt.Println("Error reading YAML file: " + err.Error())
 				}
-				yaml := scenario.ReadScenario2(yamlFile)
+				yaml := scenario.ReadScenario(yamlFile)
 				yaml.UUID = newUUID
 				scenario.WriteScenario(yaml, scenarioDir+filename+".yaml")
 				err = os.Rename(scenarioDir+parentPath+filename+".yaml", scenarioDir+parentPath+newUUID.String()+".yaml")
@@ -759,8 +736,6 @@ func bundledFunction(scnUUID string) {
 	wgLoad.Wait()
 
 	for {
-		//helperpod := kubeapi.AttackerPodExists(scene.Attacker.Name)
-		//defer kubeapi.ReuseIdlePod(helperpod)
 
 		ok := scenario.CheckAmountOfPods()
 
@@ -847,7 +822,7 @@ func bundledFunction(scnUUID string) {
 		startScenario(scene, &wgExec)
 	}
 	wgExec.Wait()
-	fmt.Println("Packet capturing is done\n")
+	fmt.Println("Packet capturing is done")
 
 	time.Sleep(5 * time.Second)
 
@@ -952,6 +927,7 @@ func main() {
 // scenarioWatcher will watch a folder, checking for newly created/added files.
 // New files will be handled as scenarios and the bundledFunction will get triggered.
 // The watching process will check every 100 ms.
+// Tested at the start of the project but should be tested again.
 func scenarioWatcher(folder string) {
 	w := watcher.New()
 	w.FilterOps(watcher.Create)

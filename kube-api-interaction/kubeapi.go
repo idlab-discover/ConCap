@@ -111,7 +111,7 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool, error) {
 	if reusable {
 		specs, err = findIdlePodForAttacker(pod.Spec.Containers[0].Image)
 		if err != nil {
-			//fmt.Println("Error finding pod: " + err.Error())
+			fmt.Println("Error finding pod: " + err.Error())
 		}
 		fmt.Println(specs.Name + "	" + specs.PodIP)
 	}
@@ -122,7 +122,7 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool, error) {
 	} else {
 		result, err := CreatePod(pod) //Creating new pod
 		if err != nil {
-			//fmt.Println("Creation of pod failed: " + err.Error())
+			fmt.Println("Creation of pod failed: " + err.Error())
 			return specs, false, err
 		}
 		podStates := make(chan bool, 64) //Used to get pod status
@@ -134,7 +134,7 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool, error) {
 			if msg {
 				pod, err := podsClient.Get(context.Background(), result.Name, metav1.GetOptions{})
 				if err != nil {
-					//fmt.Println("Checking pod status failed: " + err.Error())
+					fmt.Println("Checking pod status failed: " + err.Error())
 					return specs, false, err
 				}
 				result = pod //Set result as got from client.Get()
@@ -216,7 +216,7 @@ func UpdatePod() {
 // The function ListPod prints a list of pods with their statuses in the default namespace
 // Not Used => can be used to improve scenario tracking
 func ListPod() {
-	fmt.Println("Listing pods in namespace %q:\n", apiv1.NamespaceDefault)
+	fmt.Println("Listing pods in namespace: " + apiv1.NamespaceDefault)
 
 	// Create a context object with a timeout of 5 seconds and defer its cancellation until the function returns
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -253,7 +253,6 @@ func DeletePod(podName string) error {
 	return nil
 }
 
-// TO DO
 // WatchPod gets the current event chain and prints the info
 // Not used
 func WatchPod() {
@@ -423,6 +422,7 @@ func ReuseIdlePod(pod *apiv1.Pod) error {
 }
 
 // CreateDeployment is a function that creates a new Kubernetes Deployment using the supplied Deployment object.
+// Not used
 func CreateDeployment(deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 	// Create a new context with a timeout of 5 seconds.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)

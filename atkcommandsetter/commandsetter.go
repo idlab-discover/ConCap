@@ -17,6 +17,8 @@ import (
 //
 // Returns:
 //   - A string containing the attack command for the given scenario.
+//
+// Used but can be removed by changing localhost in all attack tool classes
 func GenerateAttackCommand(scn *scenario.Scenario) string {
 
 	// Call BuildAtkCommand method of the selected attacker category to get command string
