@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	device       string = "weave"
+	device       string = "eth0" // "weave"
 	snapshot_len int32  = 65536 // or 2048
 	promiscuous  bool   = true
 	err          error
