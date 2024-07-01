@@ -531,6 +531,7 @@ func findIdlePodForAttacker(image string) (PodSpec, error) {
 //   - containerName: A string containing the name of the container from which the file should be copied.
 //   - sourcePath: A string containing the path to the file in the Pod that should be copied.
 //   - destPath: A string containing the path to the destination file on the local filesystem.
+//   - keepFile: A boolean value indicating whether the file should be kept in the Pod after copying.
 //
 // Returns:
 //   - An error if there were any issues encountered during the file copy process.
@@ -550,8 +551,8 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 	// Execute the command
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		fmt.Printf("Output: %s\n", output)
+		log.Printf("Error: %v\n", err)
+		log.Printf("Output: %s\n", output)
 		return err
 	}
 
@@ -566,7 +567,7 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 		}
 	}
 
-	fmt.Println("File copied successfully")
+	fmt.Println("File downloaded successfully")
 
 	return nil
 }
@@ -596,12 +597,12 @@ func CopyFileToPod(podName string, containerName string, sourcePath string, dest
 	// Execute the command
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		fmt.Printf("Output: %s\n", output)
+		log.Printf("Error: %v\n", err)
+		log.Printf("Output: %s\n", output)
 		return err
 	}
 
-	fmt.Println("File copied successfully")
+	log.Println("File uploaded successfully")
 
 	return nil
 }

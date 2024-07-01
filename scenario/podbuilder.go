@@ -315,6 +315,8 @@ func AttackDeployment(scn *Scenario, captureDir string) *appsv1.Deployment {
 	return deployment // Return the created deployment object.
 }
 
+// LoadPodSpecFromYaml takes a path to a yaml file and returns a pointer to an apiv1.Pod object.
+// Watchout podspec is has difference from kubectl yaml files..
 func LoadPodSpecFromYaml(path string) (*apiv1.Pod, error) {
 	// Read the yaml file
 	podYAML, err := os.ReadFile(path)
@@ -328,6 +330,54 @@ func LoadPodSpecFromYaml(path string) (*apiv1.Pod, error) {
 		return nil, err
 	}
 	return &podSpec, nil
+}
+
+func ProcessingPodSpec(name string, image string) *apiv1.Pod {
+	return &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: apiv1.NamespaceDefault,
+			Labels: map[string]string{
+				"containercap": "processing-pod",
+				"idle":         "false",
+			},
+		},
+		Spec: apiv1.PodSpec{
+			Containers: []apiv1.Container{
+				{
+					Name:    name,
+					Image:   image,
+					Command: []string{"tail", "-f", "/dev/null"},
+					Stdin:   true,
+					TTY:     true,
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "node-storage-pcap",
+							MountPath: "/data/pcap",
+						},
+						{
+							Name:      "node-storage-flow",
+							MountPath: "/data/flow",
+						},
+					},
+				},
+			},
+			Volumes: []apiv1.Volume{
+				{
+					Name: "node-storage-pcap",
+					VolumeSource: apiv1.VolumeSource{
+						EmptyDir: &apiv1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: "node-storage-flow",
+					VolumeSource: apiv1.VolumeSource{
+						EmptyDir: &apiv1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+		},
+	}
 }
 
 func FlowProcessPod(name string) *apiv1.Pod {

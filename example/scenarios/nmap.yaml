@@ -1,0 +1,19 @@
+scenarioType: ""
+attacker:
+  category: scan
+  name: nmap
+  image: instrumentisto/nmap:latest
+  atkCommand: nmap {{.TargetAddress}} -p 0-80,443,8080 -sV --version-light -T3
+  # atkTime: 5s
+target:
+  category: webserver
+  name: httpd
+  image: httpd:2.4.38
+  ports:
+  - 80
+captureEngine:
+  name: tcpdump
+  image: gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/tcpdump:latest
+  interface: weave
+  filter: (dst host {{.AttackAddress}} and src host {{.TargetAddress}}) or (dst host {{.TargetAddress}} and src host {{.AttackAddress}}) and !arp
+tag: ""
