@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+objectmeta:
+  name: cicflowmeter
+  namespace: default
+  labels:
+    containercap: processing-pod
+    idle: "false"
+spec:
+  containers:
+  - name: cicflowmeter
+    image: mielverkerken/cicflowmeter:latest
+    command: ["tail", "-f", "/dev/null"]
+    stdin: true
+    tty: true
+    volumeMounts:
+    - name: node-storage-pcap
+      mountPath: /data/pcap
+    - name: node-storage-flow
+      mountPath: /data/flow
+  volumes:
+  - name: node-storage-pcap
+    emptyDir: {}
+  - name: node-storage-flow
+    emptyDir: {}

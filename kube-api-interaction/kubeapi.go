@@ -5,6 +5,8 @@ package kubeapi
 import (
 	"context"
 	"fmt"
+	"log"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -101,6 +103,7 @@ func CreatePod(pod *apiv1.Pod) (*apiv1.Pod, error) {
 // Returns:
 //   - A PodSpec struct containing the specifications of the created/reused Pod.
 //   - A boolean value indicating whether a Pod was reused or not.
+//   - An error if there were any issues encountered during the Pod creation process.
 func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool, error) {
 
 	//Declaring variables
@@ -126,7 +129,7 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool, error) {
 			return specs, false, err
 		}
 		podStates := make(chan bool, 64) //Used to get pod status
-		fmt.Println("KubeAPI: Checking Pod Status Name:" + result.Name + "\n")
+		log.Println("KubeAPI: Checking Pod Status Name:" + result.Name)
 
 		go CheckPodsStatus(podStates, result.Name) //Concurrently goes on to check the pod status
 
@@ -520,4 +523,85 @@ func findIdlePodForAttacker(image string) (PodSpec, error) {
 		}
 	}
 	return specs, nil
+}
+
+// CopyFileFromPod is a function that copies a file from a specified Pod and container to the local filesystem.
+// Parameters:
+//   - podName: A string containing the name of the Pod from which the file should be copied.
+//   - containerName: A string containing the name of the container from which the file should be copied.
+//   - sourcePath: A string containing the path to the file in the Pod that should be copied.
+//   - destPath: A string containing the path to the destination file on the local filesystem.
+//
+// Returns:
+//   - An error if there were any issues encountered during the file copy process.
+func CopyFileFromPod(podName string, containerName string, sourcePath string, destPath string, keepFile bool) error {
+	// Create a new context with a timeout of 30 seconds.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() // Clean up the context once the function returns.
+
+	// Copy the file from the specified Pod and container to the local filesystem.
+
+	// Construct the kubectl cp command
+	cmd := exec.CommandContext(ctx, "kubectl", "cp", fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, sourcePath), destPath, "-c", containerName)
+
+	// Set the environment variables if needed (e.g., KUBECONFIG)
+	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
+
+	// Execute the command
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("Output: %s\n", output)
+		return err
+	}
+
+	// Delete the file from the Pod if keepFile is set to false
+	if !keepFile {
+		_, stde, err := ExecCommandInContainer(apiv1.NamespaceDefault, podName, containerName, "rm", sourcePath)
+		if err != nil {
+			return err
+		}
+		if stde != "" {
+			log.Println("Error deleting file from Pod: ", stde)
+		}
+	}
+
+	fmt.Println("File copied successfully")
+
+	return nil
+}
+
+// CopyFileToPod is a function that copies a file to a specified Pod and container from the local filesystem.
+// Parameters:
+//   - podName: A string containing the name of the Pod to which the file should be copied.
+//   - containerName: A string containing the name of the container to which the file should be copied.
+//   - sourcePath: A string containing the path to the source file on the local filesystem.
+//   - destPath: A string containing the path to the destination file in the Pod.
+//
+// Returns:
+//   - An error if there were any issues encountered during the file copy process.
+func CopyFileToPod(podName string, containerName string, sourcePath string, destPath string) error {
+	// Create a new context with a timeout of 30 seconds.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() // Clean up the context once the function returns.
+
+	// Copy the file from the specified Pod and container to the local filesystem.
+
+	// Construct the kubectl cp command
+	cmd := exec.CommandContext(ctx, "kubectl", "cp", sourcePath, fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, destPath), "-c", containerName)
+
+	// Set the environment variables if needed (e.g., KUBECONFIG)
+	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
+
+	// Execute the command
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("Output: %s\n", output)
+		return err
+	}
+
+	fmt.Println("File copied successfully")
+
+	return nil
 }

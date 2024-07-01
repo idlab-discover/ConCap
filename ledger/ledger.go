@@ -4,7 +4,7 @@
 package ledger
 
 import (
-	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -22,6 +22,7 @@ const (
 	COMPLETED ScenarioState = "completed"
 	ERROR     ScenarioState = "error"
 	BUNDLED   ScenarioState = "bundled"
+	NO_STATE  ScenarioState = "no state"
 )
 
 type LedgerEntry struct {
@@ -29,35 +30,26 @@ type LedgerEntry struct {
 	Time  time.Time
 }
 
-func Register(uuid string) {
+func Register(uuid uuid.UUID) {
 	ledger.Store(uuid, LedgerEntry{State: DECLARED, Time: time.Now()})
-	fmt.Println(uuid, GetScenarioState(uuid))
+	log.Println(uuid, GetScenarioState(uuid))
 }
 
-func UpdateState(uuid string, le LedgerEntry) {
+func UpdateState(uuid uuid.UUID, le LedgerEntry) {
 	ledger.Store(uuid, le)
-	fmt.Println("Ledger - Scenario: " + GetScenarioState(uuid))
+	log.Println("Ledger - Scenario: " + GetScenarioState(uuid))
 }
 
 func Unregister(uuid uuid.UUID) {
-	ledger.Delete(uuid.String())
+	ledger.Delete(uuid)
 }
 
-func GetScenarioState(uuid string) string {
+func GetScenarioState(uuid uuid.UUID) ScenarioState {
 
 	var l interface{}
 	l, _ = ledger.Load(uuid)
 	if l != nil {
-		return string(l.(LedgerEntry).State)
+		return l.(LedgerEntry).State
 	}
-	return "no state"
-}
-
-func Keys() []string {
-	m := []string{}
-	ledger.Range(func(key interface{}, value interface{}) bool {
-		m = append(m, fmt.Sprint(key))
-		return true
-	})
-	return m
+	return NO_STATE
 }

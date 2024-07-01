@@ -2,6 +2,7 @@ package kubeapi
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/url"
 	"strings"
@@ -77,7 +78,7 @@ func ExecWithOptions(options ExecOptions) (string, string, error) {
 //   - stdout: A string containing the standard output of the executed command.
 //   - stderr: A string containing the standard error output of the executed command.
 //   - error: An error object indicating any errors encountered while executing the command.
-func ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName string, cmd ...string) (string, string, error) {
+func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) (string, string, error) {
 	return ExecWithOptions(ExecOptions{
 		Command:       cmd,
 		Namespace:     nameSpace,
@@ -89,23 +90,6 @@ func ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName stri
 		CaptureStderr:      true,
 		PreserveWhitespace: false,
 	})
-}
-
-// ExecCommandInContainer is a function that executes a command in the specified container.
-// It takes the namespace, pod name, container name, and command as input parameters and returns the stdout and stderr outputs of the command.
-//
-// Parameters:
-//   - nameSpace: A string containing the name of the namespace in which the pod is running.
-//   - podName: A string containing the name of the pod in which the container is running.
-//   - containerName: A string containing the name of the container in which the command is to be executed.
-//   - cmd: A variable number of strings containing the command to be executed.
-//
-// Returns:
-//   - stdout: A string containing the standard output of the executed command.
-//   - stderr: A string containing the standard error output of the executed command.
-func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) (string, string) {
-	stdout, stderr, _ := ExecCommandInContainerWithFullOutput(nameSpace, podName, containerName, cmd...)
-	return stdout, stderr
 }
 
 // ExecShellInContainer is a function that launches a command in the specified container using sh.
@@ -121,8 +105,25 @@ func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...str
 // Returns:
 //   - stdout: A string containing the standard output of the executed command.
 //   - stderr: A string containing the standard error output of the executed command.
-func ExecShellInContainer(nameSpace, podName, containerName, cmd string) (string, string) {
+func ExecBashInContainer(nameSpace, podName, containerName, cmd string) (string, string, error) {
 	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/bash", "-c", cmd)
+}
+
+// ExecShellInContainer is a function that launches a command in the specified container using sh.
+// It takes the namespace, pod name, container name, and command as input parameters and returns the stdout and stderr outputs of the command.
+// This function is used in the main function.
+//
+// Parameters:
+//   - nameSpace: A string containing the name of the namespace in which the pod is running.
+//   - podName: A string containing the name of the pod in which the container is running.
+//   - containerName: A string containing the name of the container in which the command is to be executed.
+//   - cmd: A string containing the command to be executed using sh.
+//
+// Returns:
+//   - stdout: A string containing the standard output of the executed command.
+//   - stderr: A string containing the standard error output of the executed command.
+func ExecShellInContainer(nameSpace, podName, containerName, cmd string) (string, string, error) {
+	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
 }
 
 // execute is a helper function used internally to execute a command in a container.
@@ -145,7 +146,7 @@ func execute(method string, url *url.URL, config *rest.Config, stdin io.Reader, 
 	if err != nil {
 		return err
 	}
-	return exec.Stream(remotecommand.StreamOptions{
+	return exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  stdin,
 		Stdout: stdout,
 		Stderr: stderr,

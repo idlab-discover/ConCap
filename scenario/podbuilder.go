@@ -2,11 +2,13 @@ package scenario
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
-	"strconv"
+	"os"
 	"time"
 
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +22,8 @@ var (
 	DeploymentCount    int = 0
 	totalPods          int = 0
 )
+
+const MaxRunningPods = 50
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -48,28 +52,31 @@ func MinusAttackerPodCount() {
 // for a new scenario would be more than the hardcoded value, the scenario cannot be added.
 // This needs to be dynamically chosen in the feature.
 // This was not tested yet
-func CheckAmountOfPods() bool {
-	if totalPods <= 50 {
-		return true
-	} else {
-		for _, element := range kubeapi.CheckIdleContainerCapPods() {
-			kubeapi.DeletePod(element)
+func ExceedingMaxRunningPods() bool {
+	if totalPods <= MaxRunningPods {
+		return false
+	}
+	return true
+}
+
+func DeleteIdlePods() {
+	for _, element := range kubeapi.CheckIdleContainerCapPods() {
+		err := kubeapi.DeletePod(element)
+		if err != nil {
 			MinusTotalPodsCount()
-		}
-		if totalPods <= 50 {
-			return true
+		} else {
+			log.Println("Error deleting idle pod: " + err.Error())
 		}
 	}
-	return false
 }
 
 // AttackPod takes a Scenario specification and makes a pod with a sole attack-container.
-func AttackPod(scn *Scenario, captureDir string) *apiv1.Pod {
+func AttackPod(scn *Scenario) *apiv1.Pod {
 
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scn.UUID.String() + "-attacker-" + fmt.Sprint(attackerPodCount),
-			Namespace: apiv1.NamespaceAll,
+			Name:      scn.UUID.String() + "-attacker",
+			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"containercap": "attacker-pod",
 				"category":     string(scn.Attacker.Category),
@@ -78,33 +85,16 @@ func AttackPod(scn *Scenario, captureDir string) *apiv1.Pod {
 			},
 		},
 		Spec: apiv1.PodSpec{
-			ImagePullSecrets: []apiv1.LocalObjectReference{
-				{Name: "idlab-gitlab"},
-			},
+			// ImagePullSecrets: []apiv1.LocalObjectReference{
+			// 	{Name: "idlab-gitlab"},
+			// },
 			Containers: []apiv1.Container{
 				{
-					Name:  scn.Attacker.Name,
-					Image: scn.Attacker.Image,
-
-					Stdin: true,
-					TTY:   true,
-					VolumeMounts: []apiv1.VolumeMount{
-						{
-							Name:      "nfs-volume",
-							MountPath: "/Containercap",
-						},
-					},
-				},
-			},
-			Volumes: []apiv1.Volume{
-				{
-					Name: "nfs-volume",
-					VolumeSource: apiv1.VolumeSource{
-						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "pvc-nfs",
-							ReadOnly:  false,
-						},
-					},
+					Name:    scn.Attacker.Name,
+					Image:   scn.Attacker.Image,
+					Command: []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
+					Stdin:   true,
+					TTY:     true,
 				},
 			},
 		},
@@ -116,12 +106,12 @@ func AttackPod(scn *Scenario, captureDir string) *apiv1.Pod {
 }
 
 // TargetPod takes a Scenario specification and makes a pod with a sole target-container.
-func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
+func TargetPod(scn *Scenario) *apiv1.Pod {
 
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scn.UUID.String() + "-target-" + fmt.Sprint(targetPodCount),
-			Namespace: apiv1.NamespaceAll,
+			Name:      scn.UUID.String() + "-target",
+			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"containercap": "target-pod",
 				"category":     string(scn.Target.Category),
@@ -133,10 +123,6 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 		Spec: apiv1.PodSpec{
 			SecurityContext: &apiv1.PodSecurityContext{
 				FSGroup: int64Ptr(1000),
-			},
-
-			ImagePullSecrets: []apiv1.LocalObjectReference{
-				{Name: "idlab-gitlab"},
 			},
 			RestartPolicy: "Never",
 			Containers: []apiv1.Container{
@@ -157,12 +143,6 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 							ContainerPort: scn.Target.Ports[0],
 						},
 					},
-					VolumeMounts: []apiv1.VolumeMount{
-						{
-							Name:      "nfs-volume",
-							MountPath: "/Containercap",
-						},
-					},
 					Env: []apiv1.EnvVar{
 						{
 							Name:  "TARGETPOD_IP",
@@ -171,16 +151,17 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 					},
 				},
 				{
-					Name:  "healthcheck",
-					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/health-sidecar:latest",
-					Env: []apiv1.EnvVar{
+					Name:  "tcpdump",
+					Image: "corfr/tcpdump",
+					// TODO change command to only capture traffic on the target container
+					Command: []string{"tcpdump", "-i", "any", "-w", "/data/dump.pcap", "!arp"},
+					SecurityContext: &apiv1.SecurityContext{
+						Privileged: func() *bool { b := true; return &b }(),
+					},
+					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:  "TARGET_HOST",
-							Value: "localhost",
-						},
-						{
-							Name:  "TARGET_PORT",
-							Value: strconv.Itoa(int(scn.Target.Ports[0])),
+							Name:      "node-storage",
+							MountPath: "/data",
 						},
 					},
 				},
@@ -188,12 +169,9 @@ func TargetPod(scn *Scenario, captureDir string) *apiv1.Pod {
 
 			Volumes: []apiv1.Volume{
 				{
-					Name: "nfs-volume",
+					Name: "node-storage",
 					VolumeSource: apiv1.VolumeSource{
-						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "pvc-nfs",
-							ReadOnly:  false,
-						},
+						EmptyDir: &apiv1.EmptyDirVolumeSource{},
 					},
 				},
 			},
@@ -337,7 +315,21 @@ func AttackDeployment(scn *Scenario, captureDir string) *appsv1.Deployment {
 	return deployment // Return the created deployment object.
 }
 
-// FlowProcessPod is the api pod constructor for feature processing pods (currently iscxflowmeter & cisco joy). We will include more tools such as argus and other netflow tools
+func LoadPodSpecFromYaml(path string) (*apiv1.Pod, error) {
+	// Read the yaml file
+	podYAML, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the yaml file to a Pod object
+	var podSpec apiv1.Pod
+	if err := yaml.Unmarshal(podYAML, &podSpec); err != nil {
+		return nil, err
+	}
+	return &podSpec, nil
+}
+
 func FlowProcessPod(name string) *apiv1.Pod {
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -349,31 +341,39 @@ func FlowProcessPod(name string) *apiv1.Pod {
 			},
 		},
 		Spec: apiv1.PodSpec{
-			ImagePullSecrets: []apiv1.LocalObjectReference{
-				{Name: "idlab-gitlab"},
-			},
+			// ImagePullSecrets: []apiv1.LocalObjectReference{
+			// 	{Name: "idlab-gitlab"},
+			// },
 			Containers: []apiv1.Container{
 				{
-					Name:  name,
-					Image: "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/" + name + ":latest",
-					Stdin: true,
-					TTY:   true,
+					Name:    name,
+					Image:   "mielverkerken/" + name + ":latest",
+					Command: []string{"tail", "-f", "/dev/null"},
+					Stdin:   true,
+					TTY:     true,
 					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:      "nfs-volume",
-							MountPath: "/ContainerCap",
+							Name:      "node-storage-pcap",
+							MountPath: "/data/pcap",
+						},
+						{
+							Name:      "node-storage-flow",
+							MountPath: "/data/flow",
 						},
 					},
 				},
 			},
 			Volumes: []apiv1.Volume{
 				{
-					Name: "nfs-volume",
+					Name: "node-storage-pcap",
 					VolumeSource: apiv1.VolumeSource{
-						PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "pvc-nfs",
-							ReadOnly:  false,
-						},
+						EmptyDir: &apiv1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: "node-storage-flow",
+					VolumeSource: apiv1.VolumeSource{
+						EmptyDir: &apiv1.EmptyDirVolumeSource{},
 					},
 				},
 			},
@@ -384,10 +384,9 @@ func FlowProcessPod(name string) *apiv1.Pod {
 	return pod
 }
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
-
 // RandStringRunes is a small helper function to create random n-length strings from the smallcap letterRunes
 func RandStringRunes(n int) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]

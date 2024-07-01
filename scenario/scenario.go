@@ -6,16 +6,13 @@ package scenario
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/google/uuid"
-	"github.com/xanzy/go-gitlab"
 	"gopkg.in/yaml.v2"
 )
 
@@ -29,8 +26,11 @@ const (
 	DDoS       ScenarioType = "ddos"
 )
 
+const EmptyAttackDuration = ""
+
 type Scenario struct {
 	UUID          uuid.UUID
+	Name          string
 	ScenarioType  ScenarioType  `yaml:"scenarioType"`
 	StartTime     time.Time     `yaml:"startTime"`
 	StopTime      time.Time     `yaml:"stopTime"`
@@ -72,51 +72,50 @@ type CaptureEngine struct {
 }
 
 // ReadScenario will unmarshall the yaml back into the in-memory Scenario representation
-func ReadScenario(r io.Reader) *Scenario {
+func ReadScenario(filePath string) (*Scenario, error) {
 	s := Scenario{}
-	b, err := ioutil.ReadAll(r)
+
+	fileHandler, err := os.Open(filePath)
 	if err != nil {
-		log.Fatalf("error reading YAML: %v", err)
+		log.Println("Failed to open file " + filePath + " : " + err.Error())
+		return nil, err
+	}
+	defer fileHandler.Close()
+
+	b, err := io.ReadAll(fileHandler)
+	if err != nil {
+		return nil, fmt.Errorf("error reading YAML: %w", err)
 	}
 
 	err = yaml.UnmarshalStrict(b, &s)
 	if err != nil {
-		log.Fatalf("error unmarshaling YAML: %v", err)
+		return nil, fmt.Errorf("error unmarshaling YAML: %w", err)
 	}
 
-	// handle case where image field in Attacker is empty
+	// TODO more checking needed here
 	if s.Attacker.Image == "" {
-
-		fmt.Println("Attacker Image was not given, so checking for Image for given attack")
-		fmt.Println()
-
-		image, err := SearchImage(s.Attacker.Name)
-		if image != "" {
-			s.Attacker.Image = image
-			fmt.Println("Found Image for attack: " + s.Attacker.Name)
-			fmt.Println()
-		} else {
-			log.Fatalf("error finding the Image for " + err.Error())
-		}
-
+		return nil, fmt.Errorf("no attack-image provided for attack: '%s'", s.Attacker.Name)
 	}
-	var atkTime = GetTimeout(s.Attacker.AtkTime)
-	if atkTime == "" {
-		s.Attacker.AtkTime = "60s"
+
+	atkTime, err := parseToSeconds(s.Attacker.AtkTime)
+	if err != nil {
+		s.Attacker.AtkTime = EmptyAttackDuration
 	} else {
 		s.Attacker.AtkTime = atkTime
 	}
 
-	return &s
+	s.UUID = uuid.New()
+	s.Name = strings.TrimSuffix(fileHandler.Name(), filepath.Ext(fileHandler.Name()))
+	return &s, nil
 }
 
 // WriteScenario will marshall the in-memory Scenario to valid yaml and write it to disk
-func WriteScenario(s *Scenario, f string) error {
+func WriteScenario(s *Scenario, outputDir string) error {
 	b, err := yaml.Marshal(s)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	return ioutil.WriteFile(f, b, 0644)
+	return os.WriteFile(filepath.Join(outputDir, "scenario.yaml"), b, 0644)
 }
 
 type Container struct {
@@ -124,74 +123,15 @@ type Container struct {
 	Path string `json:"path"`
 }
 
-// Tested and works but only with latest version
-func SearchImage(attackerName string) (string, error) {
-	git, _ := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"), gitlab.WithBaseURL("https://gitlab.ilabt.imec.be/api/v4"))
-	projectID := 880
-
-	options := &gitlab.ListRegistryRepositoriesOptions{
-		ListOptions: gitlab.ListOptions{
-			PerPage: 100,
-			Page:    1,
-		},
-	}
-	registryRepos, _, err := git.ContainerRegistry.ListProjectRegistryRepositories(projectID, options)
+// GetTimeout converts a time string (e.g., "10s", "2m", "1h") to a standardized
+// string representation of seconds (e.g., "600s" for "10m").
+// It returns an error if the input is in an unsupported format.
+func parseToSeconds(s string) (string, error) {
+	duration, err := time.ParseDuration(s)
 	if err != nil {
-		fmt.Printf("Error fetching registry repositories: %s\n", err)
-		return "", err
-	}
-	fmt.Println("There are " + fmt.Sprint(len(registryRepos)) + " repositories")
-	// Create a list to store the containers
-	var containers []string
-
-	// Iterate through the repositories and append the container names to the list
-	for _, repo := range registryRepos {
-		containers = append(containers, repo.Path)
-	}
-	for _, container := range containers {
-		if strings.Contains(container, attackerName) {
-			image := "gitlab.ilabt.imec.be:4567/lpdhooge/containercap-imagery/" + attackerName + ":latest"
-			return image, nil
-		}
-	}
-	return "", err
-}
-
-// Tested and works
-func GetTimeout(input string) string {
-	var seconds int
-
-	letterIndex := strings.IndexFunc(input, func(c rune) bool {
-		return !unicode.IsNumber(c)
-	})
-
-	if letterIndex == -1 {
-		return ""
-	}
-	if len(input) != letterIndex+1 {
-		return ""
-	}
-	// Extract the number and the letter
-	numberStr := input[:letterIndex]
-	letter := input[letterIndex]
-
-	// Parse the number
-	number, err := strconv.Atoi(numberStr)
-	if err != nil {
-		return ""
+		return EmptyAttackDuration, err
 	}
 
-	// Convert the number to seconds based on the letter
-	switch letter {
-	case 's':
-		seconds = number
-	case 'm':
-		seconds = number * 60
-	case 'h':
-		seconds = number * 3600
-	default:
-		return ""
-	}
-
-	return fmt.Sprint(seconds) + "s"
+	seconds := int(duration.Seconds())
+	return fmt.Sprint(seconds) + "s", nil
 }
