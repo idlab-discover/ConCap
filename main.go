@@ -134,10 +134,10 @@ func startScenario(scn *scenario.Scenario, outputDir string) {
 	stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, attackpod.Uuid, attackpod.ContainerName, command)
 
 	if err != nil {
-		log.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : error: " + err.Error())
+		log.Println(scn.Name + " : " + scn.Attacker.Name + " : error: " + err.Error())
 	}
 	if stde != "" {
-		log.Println(scn.UUID.String() + " : " + scn.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+		log.Println(scn.Name + " : " + scn.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
 	}
 
 	//######################################################################//
@@ -145,16 +145,16 @@ func startScenario(scn *scenario.Scenario, outputDir string) {
 	//######################################################################//
 
 	scn.StopTime = time.Now()
-	log.Println(scn.UUID.String() + ": Attack finished")
+	log.Println(scn.Name + ": Attack finished")
 
 	kubeapi.AddLabelToRunningPod("idle", "true", attackpod.Uuid)
 	ledger.UpdateState(scn.UUID, ledger.LedgerEntry{State: ledger.COMPLETED, Time: time.Now()})
 	targetName := targetpodspec.ObjectMeta.Name
 
 	// Download the pcap file from the target pod to local and upload to analyse pcap file
-	kubeapi.CopyFileFromPod(scn.UUID.String()+"-target", "tcpdump", "/data/dump.pcap", filepath.Join(outputDir, "/dump.pcap"), true)
-	kubeapi.CopyFileToPod("cicflowmeter", "cicflowmeter", filepath.Join(outputDir, "/dump.pcap"), filepath.Join("/data/pcap", scn.UUID.String()+".pcap"))
-	kubeapi.CopyFileToPod("rustiflow", "rustiflow", filepath.Join(outputDir, "/dump.pcap"), filepath.Join("/data/pcap", scn.UUID.String()+".pcap"))
+	kubeapi.CopyFileFromPod(scn.Name+"-target-"+scn.Target.Name, "tcpdump", "/data/dump.pcap", filepath.Join(outputDir, "/dump.pcap"), true)
+	kubeapi.CopyFileToPod("cicflowmeter", "cicflowmeter", filepath.Join(outputDir, "/dump.pcap"), filepath.Join("/data/pcap", scn.Name+".pcap"))
+	kubeapi.CopyFileToPod("rustiflow", "rustiflow", filepath.Join(outputDir, "/dump.pcap"), filepath.Join("/data/pcap", scn.Name+".pcap"))
 
 	err = kubeapi.DeletePod(targetName)
 	if err != nil {
@@ -238,35 +238,39 @@ func createFlowExtractionPods() {
 }
 
 func analysePcapFile(scenario *scenario.Scenario, outputDir string) {
-	// var wg sync.WaitGroup
-	// wg.Add(1)
-	// go capengi.JoyProcessing(scnMap[uuid].captureDir, scnMap[uuid].transformDir, &wg, joyPod, uuid.String())
-	stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, "cicflowmeter", "cicflowmeter", "/CICFlowMeter/bin/cfm /data/pcap/"+scenario.UUID.String()+".pcap /data/flow/")
-	if err != nil {
-		log.Println(scenario.UUID.String() + " : " + scenario.Attacker.Name + " : error: " + err.Error())
-	}
-	if stde != "" {
-		log.Println(scenario.UUID.String() + " : " + scenario.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-	}
-	stdo, stde, err = kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, "rustiflow", "rustiflow", "rustiflow pcap cic-flow 120 /data/pcap/"+scenario.UUID.String()+".pcap csv /data/flow/"+scenario.UUID.String()+".csv")
-	if err != nil {
-		log.Println(scenario.UUID.String() + " : " + scenario.Attacker.Name + " : error: " + err.Error())
-	}
-	// TODO fix rustiflow to not output logging to stderr
-	// if stde != "" {
-	// 	log.Println(scenario.UUID.String() + " : " + scenario.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-	// }
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, "cicflowmeter", "cicflowmeter", "/CICFlowMeter/bin/cfm /data/pcap/"+scenario.Name+".pcap /data/flow/")
+		if err != nil {
+			log.Println(scenario.Name + " : " + scenario.Attacker.Name + " : error: " + err.Error())
+		}
+		if stde != "" {
+			log.Println(scenario.Name + " : " + scenario.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		_, _, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, "rustiflow", "rustiflow", "rustiflow pcap cic-flow 120 /data/pcap/"+scenario.Name+".pcap csv /data/flow/"+scenario.Name+".csv")
+		if err != nil {
+			log.Println(scenario.Name + " : " + scenario.Attacker.Name + " : error: " + err.Error())
+		}
+		// TODO fix rustiflow to not output logging to stderr
+		// if stde != "" {
+		// 	log.Println(scenario.Name + " : " + scenario.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
+		// }
+	}()
+
+	wg.Wait()
 	log.Println("Flow reconstruction & feature extraction completed")
 	// Copy analysis results to local and remove file from pod
-	kubeapi.CopyFileFromPod("cicflowmeter", "cicflowmeter", "/data/flow/"+scenario.UUID.String()+".pcap_flow.csv", filepath.Join(outputDir, "cic-flows.csv"), true)
-	kubeapi.CopyFileFromPod("rustiflow", "rustiflow", "/data/flow/"+scenario.UUID.String()+".csv", filepath.Join(outputDir, "rustiflow.csv"), true)
-	// Remove the pcap file from the pod
-	// _, stde, err = kubeapi.ExecShellInContainer("default", "cicflowmeter", "cicflowmeter", "rm", "/data/pcap/"+scenario.UUID.String()+".pcap")
-	// if stde != "" {
-	// 	log.Println(scenario.UUID.String() + " : " + scenario.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-	// }
+	kubeapi.CopyFileFromPod("cicflowmeter", "cicflowmeter", "/data/flow/"+scenario.Name+".pcap_flow.csv", filepath.Join(outputDir, "cic-flows.csv"), false)
+	kubeapi.CopyFileFromPod("rustiflow", "rustiflow", "/data/flow/"+scenario.Name+".csv", filepath.Join(outputDir, "rustiflow.csv"), false)
+
 	log.Println("Flows downloaded")
-	// wg.Wait()
 }
 
 // Per-Scenario function: all necessary actions are bundled here, from loading the scenario to bundling the results.
@@ -286,25 +290,25 @@ func scheduleScenario(scenarioPath string, outputDir string) {
 	// TODO: Take into account reusable pods (both for max running pods and deleting idle pods)
 	waitForPodAvailability()
 
-	log.Printf("Starting scenario: %s\n", scene.UUID)
+	log.Printf("Starting scenario: %s\n", scene.Name)
 	// if len(scene.Support) > 0 {
 	// 	startScenarioWithSupport(scene)
 
 	// } else {
 	// 	startScenario(scene)
 	// }
-	scenarioOutputFolder := filepath.Join(outputDir, scene.UUID.String())
+	scenarioOutputFolder := filepath.Join(outputDir, scene.Name)
 	if err := os.MkdirAll(scenarioOutputFolder, 0777); err != nil {
 		log.Println(err.Error())
 	}
 	startScenario(scene, scenarioOutputFolder)
-	log.Printf("Scenario finished: %s\n", scene.UUID)
 	err = scenario.WriteScenario(scene, scenarioOutputFolder)
 	if err != nil {
 		log.Fatalf("error writing scenario file: %v", err)
 	}
 
 	analysePcapFile(scene, scenarioOutputFolder)
+	log.Printf("Scenario finished: %s\n", scene.Name)
 	// time.Sleep(5 * time.Second)
 
 	// bundling(scene)
@@ -365,17 +369,21 @@ func main() {
 		log.Println("No scenarios found.")
 	} else {
 		log.Println("Number of scenarios found: " + fmt.Sprint(len(filepaths)))
-		var runningScenariosWaitGroup sync.WaitGroup
-		for _, path := range filepaths {
-			runningScenariosWaitGroup.Add(1)
-			go func(scenarioPath string) {
-				defer runningScenariosWaitGroup.Done()
-				scheduleScenario(scenarioPath, completedDir)
-			}(path)
+		for _, scenarioPath := range filepaths {
+			scheduleScenario(scenarioPath, completedDir)
 		}
-		runningScenariosWaitGroup.Wait()
+		// TODO make this concurrent
+		// var runningScenariosWaitGroup sync.WaitGroup
+		// for _, path := range filepaths {
+		// 	runningScenariosWaitGroup.Add(1)
+		// 	go func(scenarioPath string) {
+		// 		defer runningScenariosWaitGroup.Done()
+		// 		scheduleScenario(scenarioPath, completedDir)
+		// 	}(path)
+		// }
+		// runningScenariosWaitGroup.Wait()
 
-		log.Println("\nAll scenarios have finished. ")
+		log.Println("All scenarios have finished. ")
 	}
 
 	// Wait here for new scenarios until CTRL+C or other term signal is received.

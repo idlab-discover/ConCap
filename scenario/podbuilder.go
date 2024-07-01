@@ -1,15 +1,13 @@
 package scenario
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"os"
-	"time"
+	"strings"
 
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gopkg.in/yaml.v2"
-	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,10 +22,6 @@ var (
 )
 
 const MaxRunningPods = 50
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 // Helperfunction to decrease the total Pod count by one
 func MinusTotalPodsCount() {
@@ -75,7 +69,7 @@ func AttackPod(scn *Scenario) *apiv1.Pod {
 
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scn.UUID.String() + "-attacker",
+			Name:      strings.ReplaceAll(strings.ReplaceAll(scn.Attacker.Image, "/", "-"), ":", "-") + "-attacker",
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"containercap": "attacker-pod",
@@ -110,7 +104,7 @@ func TargetPod(scn *Scenario) *apiv1.Pod {
 
 	pod := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scn.UUID.String() + "-target",
+			Name:      scn.Name + "-target-" + scn.Target.Name,
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"containercap": "target-pod",
@@ -182,139 +176,6 @@ func TargetPod(scn *Scenario) *apiv1.Pod {
 	return pod
 }
 
-// SupportPods takes a Scenario specification and makes pods with a sole support-container.
-func SupportPods(scn *Scenario, captureDir string, podIP string) []*apiv1.Pod {
-	pods := make([]*apiv1.Pod, len(scn.Support))
-	for index, support := range scn.Support {
-		pod := &apiv1.Pod{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      scn.UUID.String() + "-support-" + fmt.Sprint(supportPodCount),
-				Namespace: apiv1.NamespaceDefault,
-				Labels: map[string]string{
-					"containercap": "support-pod",
-					"category":     string(support.Category),
-					"scenarioType": string(scn.ScenarioType),
-					"idle":         "false",
-				},
-			},
-			Spec: apiv1.PodSpec{
-				ImagePullSecrets: []apiv1.LocalObjectReference{
-					{Name: "idlab-gitlab"}},
-				Containers: []apiv1.Container{
-					{
-						Name:  support.Name,
-						Image: support.Image,
-						Ports: []apiv1.ContainerPort{
-							{
-								Name:          RandStringRunes(8),
-								Protocol:      apiv1.ProtocolTCP,
-								ContainerPort: support.Ports[0],
-							},
-						},
-						Stdin: true,
-						TTY:   true,
-						SecurityContext: &apiv1.SecurityContext{
-							Privileged: func() *bool { b := true; return &b }(),
-						},
-						Env: []apiv1.EnvVar{
-							{
-								Name:  "TARGETPOD_IP",
-								Value: podIP,
-							},
-						},
-
-						VolumeMounts: []apiv1.VolumeMount{
-							{
-								Name:      "nfs-volume",
-								MountPath: "/Containercap",
-							},
-						},
-					},
-				},
-				Volumes: []apiv1.Volume{
-					{
-						Name: "nfs-volume",
-						VolumeSource: apiv1.VolumeSource{
-							PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "pvc-nfs",
-								ReadOnly:  false,
-							},
-						},
-					},
-				},
-			},
-		}
-		supportPodCount++
-		totalPods++
-		pods[index] = pod
-	}
-	return pods
-}
-
-// This function takes in a Scenario and a string representing
-// the directory where captured data will be stored. It returns a pointer to an
-// appsv1.Deployment object.
-// Not tested => will probably be removed
-func AttackDeployment(scn *Scenario, captureDir string) *appsv1.Deployment {
-	deployment := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: scn.UUID.String() + "-deployment-" + fmt.Sprint(DeploymentCount),
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: int32Ptr(2), // Set the number of replicas to 2. This will need to be changed in the future.
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"containercap": "attack-deployment",
-					"category":     string(scn.Attacker.Category), // Assign the attacker category as a label.
-					"scenarioType": string(scn.ScenarioType),
-					"idle":         "false", // Set the idle flag to false.
-				},
-			},
-			Template: apiv1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: apiv1.NamespaceAll,
-					Labels: map[string]string{
-						"containercap": "attacker-pod",
-						"category":     string(scn.Attacker.Category),
-						"scenarioType": string(scn.ScenarioType),
-						"idle":         "false",
-					},
-				},
-				Spec: apiv1.PodSpec{
-					Containers: []apiv1.Container{
-						{
-							Name:  scn.Attacker.Name,
-							Image: scn.Attacker.Image,
-
-							Stdin: true,
-							TTY:   true,
-						},
-					},
-					Volumes: []apiv1.Volume{
-						{
-							Name: "nfs-volume",
-							VolumeSource: apiv1.VolumeSource{
-								PersistentVolumeClaim: &apiv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "pvc-nfs",
-									ReadOnly:  false,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	DeploymentCount++
-	for i := 0; i < 2; i++ { // Increase the count of attacker pods and total pods.
-		attackerPodCount++
-		totalPods++
-	}
-	return deployment // Return the created deployment object.
-}
-
 // LoadPodSpecFromYaml takes a path to a yaml file and returns a pointer to an apiv1.Pod object.
 // Watchout podspec is has difference from kubectl yaml files..
 func LoadPodSpecFromYaml(path string) (*apiv1.Pod, error) {
@@ -378,60 +239,6 @@ func ProcessingPodSpec(name string, image string) *apiv1.Pod {
 			},
 		},
 	}
-}
-
-func FlowProcessPod(name string) *apiv1.Pod {
-	pod := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: apiv1.NamespaceDefault,
-			Labels: map[string]string{
-				"containercap": "processing-pod",
-				"idle":         "false",
-			},
-		},
-		Spec: apiv1.PodSpec{
-			// ImagePullSecrets: []apiv1.LocalObjectReference{
-			// 	{Name: "idlab-gitlab"},
-			// },
-			Containers: []apiv1.Container{
-				{
-					Name:    name,
-					Image:   "mielverkerken/" + name + ":latest",
-					Command: []string{"tail", "-f", "/dev/null"},
-					Stdin:   true,
-					TTY:     true,
-					VolumeMounts: []apiv1.VolumeMount{
-						{
-							Name:      "node-storage-pcap",
-							MountPath: "/data/pcap",
-						},
-						{
-							Name:      "node-storage-flow",
-							MountPath: "/data/flow",
-						},
-					},
-				},
-			},
-			Volumes: []apiv1.Volume{
-				{
-					Name: "node-storage-pcap",
-					VolumeSource: apiv1.VolumeSource{
-						EmptyDir: &apiv1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: "node-storage-flow",
-					VolumeSource: apiv1.VolumeSource{
-						EmptyDir: &apiv1.EmptyDirVolumeSource{},
-					},
-				},
-			},
-		},
-	}
-	processingPodCount++
-	totalPods++
-	return pod
 }
 
 // RandStringRunes is a small helper function to create random n-length strings from the smallcap letterRunes

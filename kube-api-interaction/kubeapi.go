@@ -116,7 +116,6 @@ func CreateRunningPod(pod *apiv1.Pod, reusable bool) (PodSpec, bool, error) {
 		if err != nil {
 			fmt.Println("Error finding pod: " + err.Error())
 		}
-		fmt.Println(specs.Name + "	" + specs.PodIP)
 	}
 	if (specs != PodSpec{}) {
 		AddLabelToRunningPod("idle", "false", specs.Uuid) //Adds label "idle : false" for this pod which has been reused.
@@ -567,7 +566,7 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 		}
 	}
 
-	fmt.Println("File downloaded successfully")
+	log.Println("File downloaded successfully")
 
 	return nil
 }

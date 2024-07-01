@@ -105,7 +105,7 @@ func ReadScenario(filePath string) (*Scenario, error) {
 	}
 
 	s.UUID = uuid.New()
-	s.Name = strings.TrimSuffix(fileHandler.Name(), filepath.Ext(fileHandler.Name()))
+	s.Name = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSuffix(filepath.Base(fileHandler.Name()), filepath.Ext(fileHandler.Name())), "_", "-"), " ", "-")
 	return &s, nil
 }
 
