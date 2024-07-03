@@ -16,12 +16,11 @@ var ledger sync.Map
 type ScenarioState string
 
 const (
-	DECLARED  ScenarioState = "declared"
+	SCHEDULED ScenarioState = "scheduled"
 	STARTING  ScenarioState = "starting"
 	RUNNING   ScenarioState = "running"
 	COMPLETED ScenarioState = "completed"
 	ERROR     ScenarioState = "error"
-	BUNDLED   ScenarioState = "bundled"
 	NO_STATE  ScenarioState = "no state"
 )
 
@@ -31,7 +30,7 @@ type LedgerEntry struct {
 }
 
 func Register(uuid uuid.UUID) {
-	ledger.Store(uuid, LedgerEntry{State: DECLARED, Time: time.Now()})
+	ledger.Store(uuid, LedgerEntry{State: SCHEDULED, Time: time.Now()})
 	log.Println(uuid, GetScenarioState(uuid))
 }
 

@@ -1,0 +1,24 @@
+uuid: 981e6ca5-2b8a-4309-aca8-e2686d1df107
+name: nmap-udp-version
+scenarioType: ""
+startTime: 2024-07-02T23:49:24.427526218+02:00
+stopTime: 2024-07-02T23:49:24.452896723+02:00
+attacker:
+  category: scan
+  name: nmap
+  image: instrumentisto/nmap:latest
+  atkCommand: nmap {{.TargetAddress}} -p 70-80,443,8080 -sU -sV --version-light -T3
+  atkTime: ""
+target:
+  category: webserver
+  name: httpd
+  image: httpd:2.4.38
+  ports:
+  - 80
+support: []
+captureEngine:
+  name: ""
+  image: ""
+  interface: ""
+  filter: ""
+tag: ""

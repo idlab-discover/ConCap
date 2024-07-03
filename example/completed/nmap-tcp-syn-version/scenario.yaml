@@ -1,0 +1,24 @@
+uuid: 1051b29b-d4fe-483e-967d-325a360518f3
+name: nmap-tcp-syn-version
+scenarioType: ""
+startTime: 2024-07-03T01:37:34.944456065+02:00
+stopTime: 2024-07-03T01:37:41.62987884+02:00
+attacker:
+  category: scan
+  name: nmap
+  image: instrumentisto/nmap:latest
+  atkCommand: nmap {{.TargetAddress}} -p 70-80,443,8080 -sS -sV --version-light -T3
+  atkTime: ""
+target:
+  category: webserver
+  name: httpd
+  image: httpd:2.4.38
+  ports:
+  - 80
+support: []
+captureEngine:
+  name: ""
+  image: ""
+  interface: ""
+  filter: ""
+tag: ""

@@ -16,18 +16,27 @@
 - Go environment for running the framework.
 - Docker images for the attack and target pods.
 
+## Installation
+
+Build the repository.
+
+```sh
+go build
+```
+
 ## Usage
 
 ### Flags
 
 - `-d, --dir` (required): The mount path on the host.
 - `-s, --scenario` (optional): The scenario to run, default is `all`.
-- `-w, --watch` (optional): Watch for new scenarios in the specified directory.
 
 ### Example Command
 
 ```sh
-go run main.go --dir /path/to/mount --scenario specific-scenario.yaml
+go run main.go --dir ./example
+# OR (after building the repository)
+./containercap --dir ./example
 ```
 
 ### Running Scenarios
