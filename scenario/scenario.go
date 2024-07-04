@@ -89,7 +89,6 @@ func ReadScenario(filePath string) (*Scenario, error) {
 		return nil, fmt.Errorf("error unmarshaling YAML: %w", err)
 	}
 
-	// TODO more checking needed here
 	if s.Attacker.Image == "" {
 		return nil, fmt.Errorf("no attack-image provided for attack: '%s'", s.Attacker.Name)
 	}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	"github.com/jessevdk/go-flags"
@@ -13,8 +14,9 @@ import (
 )
 
 type FlagStore struct {
-	Directory string `short:"d" long:"dir" description:"The mount path on the host" required:"true"`
-	Scenario  string `short:"s" long:"scenario" description:"The scenario's to run, default=all" optional:"true" default:"all"`
+	Directory       string `short:"d" long:"dir" description:"The mount path on the host" required:"true"`
+	Scenario        string `short:"s" long:"scenario" description:"The scenario's to run, default=all" optional:"true" default:"all"`
+	NumberOfWorkers int    `short:"w" long:"workers" description:"The number of concurrent workers that will execute scenarios" default:"1"`
 }
 
 var flagstore FlagStore
@@ -67,11 +69,29 @@ func main() {
 		// Create the flow extraction pods
 		ccap.DeployFlowExtractionPods()
 
-		for _, scenarioPath := range filepaths {
-			// TODO make this concurrent
-			ccap.ScheduleScenario(scenarioPath, completedDir)
+		// Create a channel to schedule scenarios
+		scenarioChannel := make(chan ccap.ScenarioScheduleRequest)
+
+		// Create a waitgroup to wait for all scenarios to finish
+		wg := sync.WaitGroup{}
+
+		// Start the concurrent goroutines to schedule scenarios
+		log.Printf("Starting %d scenario workers", flagstore.NumberOfWorkers)
+		for i := 0; i < flagstore.NumberOfWorkers; i++ {
+			wg.Add(1)
+			go ccap.ScheduleScenarioWorker(scenarioChannel, &wg)
 		}
 
+		// Send the scenarios to be executed to the channel
+		for _, scenarioPath := range filepaths {
+			scenarioChannel <- ccap.ScenarioScheduleRequest{ScenarioPath: scenarioPath, OutputDir: completedDir}
+		}
+
+		// Close the channel to signal that all scenarios have been sent, this will cause the goroutines to exit their receive loop
+		close(scenarioChannel)
+
+		// Wait for all scenarios to finish
+		wg.Wait()
 		log.Println("All scenarios have finished. ")
 	}
 }

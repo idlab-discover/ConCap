@@ -11,6 +11,11 @@ import (
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
+type ScenarioScheduleRequest struct {
+	ScenarioPath string
+	OutputDir    string
+}
+
 // DeployFlowExtractionPods creates the flow extraction pods if they do not exist yet.
 func DeployFlowExtractionPods() {
 	var wg sync.WaitGroup
@@ -39,6 +44,17 @@ func DeployFlowExtractionPods() {
 		}(processingPod)
 	}
 	wg.Wait()
+}
+
+// Goroutine receiving scenario requests and scheduling them for execution
+func ScheduleScenarioWorker(ch chan ScenarioScheduleRequest, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for sceneRequest := range ch {
+		err := ScheduleScenario(sceneRequest.ScenarioPath, sceneRequest.OutputDir)
+		if err != nil {
+			log.Printf("Error running scenario: %v\n", err)
+		}
+	}
 }
 
 // This function is run asynchronously, to allow for simultaneous execution of multiple scenarios at once.
