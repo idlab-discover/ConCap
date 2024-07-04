@@ -19,27 +19,17 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
+type RunningPodSpec struct {
+	PodName        string
+	ContainerImage string
+	ContainerName  string
+	PodIP          string
+}
+
 var kubeConfig *rest.Config
 var kubeClient kubernetes.Clientset
 var podsClient v1.PodInterface
 var podWatcher PodWatcher
-
-type PodSpec struct {
-	Name          string
-	Uuid          string
-	Image         string
-	Category      string
-	ScnType       string
-	ContainerCap  string
-	ContainerName string
-	PodIP         string
-}
-
-type ScenarioDeploymentSpec struct {
-	AttackPodSpec   PodSpec
-	TargetPodSpec   PodSpec
-	SupportPodSpecs []PodSpec
-}
 
 // The init function initializes the Kubernetes API by retrieving the kubeconfig file and creating a new clientset.
 // It uses the clientcmd package to retrieve the kubeconfig file from the default location and creates a clientset from it.
@@ -91,21 +81,18 @@ func CreatePod(ctx context.Context, pod *apiv1.Pod) (*apiv1.Pod, error) {
 // Returns:
 //   - A PodSpec struct containing the specifications of the created Pod.
 //   - An error if there were any issues encountered during the Pod creation process.
-func CreateRunningPod(pod *apiv1.Pod) (PodSpec, error) {
-	var specs PodSpec = PodSpec{} // Stores the PodSpec of created Pod
-	var err error
-
-	result, err := CreatePod(context.Background(), pod) //Creating new pod
+func CreateRunningPod(pod *apiv1.Pod) (RunningPodSpec, error) {
+	result, err := CreatePod(context.Background(), pod)
 	if err != nil {
 		fmt.Println("Creation of pod failed: " + err.Error())
-		return specs, err
+		return RunningPodSpec{}, err
 	}
 
 	log.Printf("Waiting for pod %s to be running...", pod.Name)
 	result, err = podWatcher.WaitForPodRunning(context.Background(), result.Name)
 	if err != nil {
 		fmt.Println("Waiting for pod to be running failed: " + err.Error())
-		return specs, err
+		return RunningPodSpec{}, err
 	}
 
 	return SetPodSpec(result), err
@@ -114,22 +101,19 @@ func CreateRunningPod(pod *apiv1.Pod) (PodSpec, error) {
 // SetPodSpec is a helper function that returns a structured object that contains some of the relevant specifications
 // of the given Kubernetes Pod. It extracts the Pod's name, container image, category,
 // scenario type, container capability, container name, and Pod IP from the provided Pod
-// variable, and organizes them into a flat struct of type PodSpec.
+// variable, and organizes them into a flat struct of type RunningPodSpec.
 //
 // Parameters:
 //   - pod: A pointer to the Kubernetes Pod whose specifications are to be extracted.
 //
 // Returns:
 //   - A PodSpec object containing the specifications of the given Pod.
-func SetPodSpec(pod *apiv1.Pod) PodSpec {
-	specs := PodSpec{
-		Name:          pod.Name,
-		Image:         pod.Spec.Containers[0].Image,
-		Category:      pod.ObjectMeta.Labels["category"],
-		ScnType:       pod.ObjectMeta.Labels["scenarioType"],
-		ContainerCap:  pod.ObjectMeta.Labels["containercap"],
-		ContainerName: pod.Spec.Containers[0].Name,
-		PodIP:         pod.Status.PodIP,
+func SetPodSpec(pod *apiv1.Pod) RunningPodSpec {
+	specs := RunningPodSpec{
+		PodName:        pod.Name,
+		ContainerImage: pod.Spec.Containers[0].Image,
+		ContainerName:  pod.Spec.Containers[0].Name,
+		PodIP:          pod.Status.PodIP,
 	}
 	return specs
 }

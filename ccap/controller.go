@@ -50,24 +50,28 @@ func DeployFlowExtractionPods() {
 func ScheduleScenarioWorker(ch chan ScenarioScheduleRequest, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for sceneRequest := range ch {
-		err := ScheduleScenario(sceneRequest.ScenarioPath, sceneRequest.OutputDir)
+		scen, err := ScheduleScenario(sceneRequest.ScenarioPath, sceneRequest.OutputDir)
 		if err != nil {
 			log.Printf("Error running scenario: %v\n", err)
+			if scen != nil {
+				// Clean up the failed scenario
+				scen.DeletePods()
+			}
 		}
 	}
 }
 
 // This function is run asynchronously, to allow for simultaneous execution of multiple scenarios at once.
-func ScheduleScenario(scenarioPath string, outputDir string) error {
+func ScheduleScenario(scenarioPath string, outputDir string) (*scenario.Scenario, error) {
 	scene, err := scenario.ReadScenario(scenarioPath)
 	if err != nil {
-		log.Println("Failed to read scenario: " + scenarioPath)
+		return nil, fmt.Errorf("Failed to read scenario: " + scenarioPath)
 	}
 	log.Printf("Scenario loaded: %s\n", scene.Name)
 
 	scenarioOutputFolder, err := mkdirScenarioOutput(outputDir, scene.Name)
 	if err != nil {
-		return fmt.Errorf("error creating scenario output folder: %v", err)
+		return scene, fmt.Errorf("error creating scenario output folder: %v", err)
 	}
 	scene.OutputDir = scenarioOutputFolder
 
@@ -75,7 +79,7 @@ func ScheduleScenario(scenarioPath string, outputDir string) error {
 	log.Printf("Scenario starting: %s\n", scene.Name)
 	err = scene.Execute()
 	if err != nil {
-		return fmt.Errorf("error executing scenario: %v", err)
+		return scene, fmt.Errorf("error executing scenario: %v", err)
 	}
 
 	// Upload the pcap file to the processing pods
@@ -86,7 +90,7 @@ func ScheduleScenario(scenarioPath string, outputDir string) error {
 	// Perform flow reconstruction and feature extraction
 	err = scene.AnalysePcap()
 	if err != nil {
-		return fmt.Errorf("error analysing pcap file: %v", err)
+		return scene, fmt.Errorf("error analysing pcap file: %v", err)
 	}
 
 	// Copy analysis results to local and remove file from pod
@@ -95,7 +99,7 @@ func ScheduleScenario(scenarioPath string, outputDir string) error {
 	_ = kubeapi.CopyFileFromPod("rustiflow", "rustiflow", "/data/flow/"+scene.Name+".csv", filepath.Join(scene.OutputDir, "rustiflow.csv"), false)
 
 	log.Printf("Scenario finished: %s\n", scene.Name)
-	return nil
+	return scene, nil
 }
 
 func mkdirScenarioOutput(outputDir string, scenarioName string) (string, error) {
