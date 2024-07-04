@@ -67,6 +67,7 @@ attacker:
 target:
   name: httpd
   image: httpd:2.4.38
+  filter: "((dst host {{.AttackAddress}} and src host {{.TargetAddress}}) or (dst host {{.TargetAddress}} and src host {{.AttackAddress}})) and not arp" # Optional, default
   ports:
   - 80
   category: webserver # Optional

@@ -22,17 +22,16 @@ import (
 const EmptyAttackDuration = ""
 
 type Scenario struct {
-	UUID          uuid.UUID
-	Name          string
-	ScenarioType  string        `yaml:"scenarioType"`
-	StartTime     time.Time     `yaml:"startTime"`
-	StopTime      time.Time     `yaml:"stopTime"`
-	Attacker      Attacker      `yaml:"attacker"`
-	Target        Target        `yaml:"target"`
-	Support       []Support     `yaml:"support"`
-	CaptureEngine CaptureEngine `yaml:"captureEngine"`
-	Tag           string        `yaml:"tag"`
-	OutputDir     string
+	UUID         uuid.UUID `yaml:"uuid"`
+	Name         string    `yaml:"name"`
+	ScenarioType string    `yaml:"scenarioType"`
+	StartTime    time.Time `yaml:"startTime"`
+	StopTime     time.Time `yaml:"stopTime"`
+	Attacker     Attacker  `yaml:"attacker"`
+	Target       Target    `yaml:"target"`
+	Support      []Support `yaml:"support"`
+	Tag          string    `yaml:"tag"`
+	OutputDir    string    `yaml:"-"`
 }
 
 type Attacker struct {
@@ -48,6 +47,7 @@ type Target struct {
 	Name     string  `yaml:"name"`
 	Image    string  `yaml:"image"`
 	Ports    []int32 `yaml:"ports"`
+	Filter   string  `yaml:"filter"`
 }
 
 type Support struct {
@@ -56,13 +56,6 @@ type Support struct {
 	Image      string  `yaml:"image"`
 	SupCommand string  `yaml:"supCommand"`
 	Ports      []int32 `yaml:"ports"`
-}
-
-type CaptureEngine struct {
-	Name      string `yaml:"name"`
-	Image     string `yaml:"image"`
-	Interface string `yaml:"interface"`
-	Filter    string `yaml:"filter"`
 }
 
 type ProcessingPod struct {
@@ -107,9 +100,17 @@ func ReadScenario(filePath string) (*Scenario, error) {
 	} else {
 		s.Attacker.AtkTime = atkTime
 	}
+	// Modify the attack command to include a timeout if a duration is provided
+	if s.Attacker.AtkTime != EmptyAttackDuration {
+		s.Attacker.AtkCommand = "timeout " + s.Attacker.AtkTime + " " + s.Attacker.AtkCommand
+	}
 
 	s.UUID = uuid.New()
 	s.Name = cleanPodName(strings.TrimSuffix(filepath.Base(fileHandler.Name()), filepath.Ext(fileHandler.Name())))
+
+	if s.Target.Filter == "" {
+		s.Target.Filter = "((dst host {{.AttackAddress}} and src host {{.TargetAddress}}) or (dst host {{.TargetAddress}} and src host {{.AttackAddress}})) and not arp"
+	}
 	return &s, nil
 }
 
@@ -124,9 +125,10 @@ func (s *Scenario) WriteScenario(outputDir string) error {
 
 // Executes the scenario from start to finish.
 // 1. Deploys the pods
-// 2. Executes the attack
-// 3. Downloads the pcap capture and updated scenario file
-// 4. Cleans up the pods
+// 2. Start traffic capture on the target pod
+// 3. Executes the attack
+// 4. Downloads the pcap capture and updated scenario file
+// 5. Cleans up the pods
 func (s *Scenario) Execute() error {
 	// 1. Deploy the pods for this scenario
 	deploymentSpec, err := s.DeployPods()
@@ -134,14 +136,22 @@ func (s *Scenario) Execute() error {
 		return fmt.Errorf("failed to deploy pods for scenario: %v", err)
 	}
 
-	// 2. Execute the attack
-	attackCommand := strings.ReplaceAll(s.Attacker.AtkCommand, "{{.TargetAddress}}", deploymentSpec.TargetPodSpec.PodIP)
-	if s.Attacker.AtkTime != EmptyAttackDuration {
-		attackCommand = "timeout " + s.Attacker.AtkTime + " " + attackCommand
+	// 2. Start traffic capture on the target pod
+	s.replacePlaceholdersInCommands(deploymentSpec)
+	log.Printf("Starting traffic capture on target pod %v for scenario %v", deploymentSpec.TargetPodSpec.Name, s.Name)
+	// Start tcpdump in the target pod, redirect stdo and stde to a log file, and write the pid to a file for later cleanup
+	stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, deploymentSpec.TargetPodSpec.Name, "tcpdump", "nohup tcpdump --no-promiscuous-mode --immediate-mode --buffer-size=32768 --packet-buffered -n --interface=eth0 -w /data/dump.pcap '"+s.Target.Filter+"' > /data/tcpdump.log 2>&1 & echo $! > /data/tcpdump.pid")
+	if err != nil {
+		return fmt.Errorf("error starting tcpdump in scenario %v, error: %v", s.Name, err)
 	}
-	log.Printf("Executing attack '%v' in scenario %v", attackCommand, s.Name)
+	if stde != "" {
+		log.Printf("%s : %s : stdout: %s\n\t stderr: %s", s.Name, s.Attacker.Name, stdo, stde)
+	}
+
+	// 3. Execute the attack
+	log.Printf("Executing attack '%v' in scenario %v", s.Attacker.AtkCommand, s.Name)
 	s.StartTime = time.Now()
-	stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, deploymentSpec.AttackPodSpec.Name, deploymentSpec.AttackPodSpec.ContainerName, attackCommand)
+	stdo, stde, err = kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, deploymentSpec.AttackPodSpec.Name, deploymentSpec.AttackPodSpec.ContainerName, s.Attacker.AtkCommand)
 	if err != nil {
 		return fmt.Errorf("error executing command in scenario %v, error: %v", s.Name, err)
 	}
@@ -151,17 +161,26 @@ func (s *Scenario) Execute() error {
 	s.StopTime = time.Now()
 	log.Printf("Attack finished in scenario %v", s.Name)
 
-	// 3. Download the pcap capture from the target pod and export the updated scenario file
+	// 4. Download the pcap capture from the target pod and export the updated scenario file
+	_, _, err = kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, deploymentSpec.TargetPodSpec.Name, "tcpdump", `kill -SIGINT $(cat /data/tcpdump.pid) && while ! ps | grep "\[tcpdump\]" 2>/dev/null; do sleep 1; done`) // Workaround for tcpdump becoming a zombie process because spawned by other shell
+	if err != nil {
+		return fmt.Errorf("failed to stop tcpdump in target pod: %v", err)
+	}
+	log.Printf("Stopped traffic capture on target pod %v for scenario %v", deploymentSpec.TargetPodSpec.Name, s.Name)
 	err = kubeapi.CopyFileFromPod(deploymentSpec.TargetPodSpec.Name, "tcpdump", "/data/dump.pcap", filepath.Join(s.OutputDir, "/dump.pcap"), true)
 	if err != nil {
 		return fmt.Errorf("failed to download pcap file from target pod: %v", err)
+	}
+	err = kubeapi.CopyFileFromPod(deploymentSpec.TargetPodSpec.Name, "tcpdump", "/data/tcpdump.log", filepath.Join(s.OutputDir, "/tcpdump.log"), true)
+	if err != nil {
+		return fmt.Errorf("failed to download tcpdump log file from target pod: %v", err)
 	}
 	err = s.WriteScenario(s.OutputDir)
 	if err != nil {
 		return fmt.Errorf("error writing scenario file: %v", err)
 	}
 
-	// 4. Cleanup the pods
+	// 5. Cleanup the pods
 	_ = kubeapi.DeletePod(deploymentSpec.TargetPodSpec.Name)
 	_ = kubeapi.DeletePod(deploymentSpec.AttackPodSpec.Name)
 	return nil
@@ -278,4 +297,12 @@ func parseToSeconds(s string) (string, error) {
 func cleanPodName(name string) string {
 	replacer := strings.NewReplacer(" ", "-", "_", "-", "/", "-", ":", "-")
 	return replacer.Replace(name)
+}
+
+// Replaces the placeholders in the commands with the actual pod IPs
+// Available placeholders: '{{.AttackAddress}}', '{{.TargetAddress}}'
+func (s *Scenario) replacePlaceholdersInCommands(deploymentSpec kubeapi.ScenarioDeploymentSpec) {
+	s.Target.Filter = strings.ReplaceAll(s.Target.Filter, "{{.AttackAddress}}", deploymentSpec.AttackPodSpec.PodIP)
+	s.Target.Filter = strings.ReplaceAll(s.Target.Filter, "{{.TargetAddress}}", deploymentSpec.TargetPodSpec.PodIP)
+	s.Attacker.AtkCommand = strings.ReplaceAll(s.Attacker.AtkCommand, "{{.TargetAddress}}", deploymentSpec.TargetPodSpec.PodIP)
 }

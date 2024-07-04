@@ -66,8 +66,8 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 				{
 					Name:  "tcpdump",
 					Image: "corfr/tcpdump",
-					// TODO change command to only capture traffic on the target container
-					Command: []string{"tcpdump", "-i", "any", "-w", "/data/dump.pcap", "!arp"},
+					// When pods are deployed the actual tcpdump command will be started with correct filter including the IP addresses.
+					Command: []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "node-storage",

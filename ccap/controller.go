@@ -87,5 +87,5 @@ func mkdirScenarioOutput(outputDir string, scenarioName string) (string, error) 
 	if err := os.MkdirAll(scenarioOutputFolder, 0777); err != nil {
 		return "", err
 	}
-	return scenarioName, nil
+	return scenarioOutputFolder, nil
 }
