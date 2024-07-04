@@ -29,6 +29,7 @@ go build
 ### Flags
 
 - `-d, --dir` (required): The mount path on the host.
+- `-d, --workers` (optional): The number of concurrent workers that will execute scenarios, default is `1`.
 - `-s, --scenario` (optional): The scenario to run, default is `all`.
 
 ### Example Command
