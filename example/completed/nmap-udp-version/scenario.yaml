@@ -1,13 +1,13 @@
-uuid: 6716b2d3-1a8d-4e7a-a43b-62d6129ebc00
+uuid: 1c9a97c4-fab3-4a77-8e64-dd427b1a6585
 name: nmap-udp-version
 scenarioType: ""
-startTime: 2024-07-04T17:44:37.283426173+02:00
-stopTime: 2024-07-04T17:44:52.991478222+02:00
+startTime: 2024-07-07T18:50:33.87132109+02:00
+stopTime: 2024-07-07T18:50:53.754340835+02:00
 attacker:
   category: scan
   name: nmap
   image: instrumentisto/nmap:latest
-  atkCommand: nmap 192.168.126.207 -p 70-80,443,8080 -sU -sV --version-light -T3
+  atkCommand: nmap 192.168.126.254 -p 70-80,443,8080 -sU -sV --version-light -T3
   atkTime: ""
 target:
   category: webserver
@@ -15,7 +15,11 @@ target:
   image: httpd:2.4.38
   ports:
   - 80
-  filter: ((dst host 192.168.126.199 and src host 192.168.126.207) or (dst host 192.168.126.207
-    and src host 192.168.126.199)) and not arp
+  filter: ((dst host 192.168.126.250 and src host 192.168.126.254) or (dst host 192.168.126.254
+    and src host 192.168.126.250)) and not arp
 support: []
 tag: ""
+labels:
+  category: scanning
+  label: "1"
+  subcategory: nmap

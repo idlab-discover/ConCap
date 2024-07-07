@@ -74,5 +74,9 @@ target:
   category: webserver # Optional
 tag: "" # Optional
 scenarioType: "" # Optional
+labels: # Optional, if present it will be included as extra columns in the flows CSV. Any key, value combination is allowed here.
+  label: 1
+  category: "scanning"
+  subcategory: "nmap"
 ```
 

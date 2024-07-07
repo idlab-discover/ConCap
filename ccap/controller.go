@@ -95,8 +95,18 @@ func ScheduleScenario(scenarioPath string, outputDir string) (*scenario.Scenario
 
 	// Copy analysis results to local and remove file from pod
 	log.Printf("Downloading flows for scenario %v...", scene.Name)
-	_ = kubeapi.CopyFileFromPod("cicflowmeter", "cicflowmeter", "/data/flow/"+scene.Name+".pcap_flow.csv", filepath.Join(scene.OutputDir, "cic-flows.csv"), false)
-	_ = kubeapi.CopyFileFromPod("rustiflow", "rustiflow", "/data/flow/"+scene.Name+".csv", filepath.Join(scene.OutputDir, "rustiflow.csv"), false)
+	cicFlowPath := filepath.Join(scene.OutputDir, "cic-flows.csv")
+	rustiFlowPath := filepath.Join(scene.OutputDir, "rustiflow.csv")
+	_ = kubeapi.CopyFileFromPod("cicflowmeter", "cicflowmeter", "/data/flow/"+scene.Name+".pcap_flow.csv", cicFlowPath, false)
+	_ = kubeapi.CopyFileFromPod("rustiflow", "rustiflow", "/data/flow/"+scene.Name+".csv", rustiFlowPath, false)
+
+	// Automatically labeling of the flow CSV files
+	log.Printf("Automatically labeling flows for scenario %v...", scene.Name)
+	// _ = scene.AddLabelsToFlowsCSV(cicFlowPath, true)
+	err = scene.AddLabelsToFlowsCSV(rustiFlowPath, false)
+	if err != nil {
+		return scene, fmt.Errorf("error adding labels to flow CSV: %v", err)
+	}
 
 	log.Printf("Scenario finished: %s\n", scene.Name)
 	return scene, nil

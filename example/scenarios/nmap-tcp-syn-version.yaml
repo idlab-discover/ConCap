@@ -12,3 +12,7 @@ target:
   ports:
   - 80
 tag: ""
+labels:
+  label: 1
+  category: "scanning"
+  subcategory: "nmap"
