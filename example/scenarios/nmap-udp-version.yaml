@@ -3,7 +3,7 @@ attacker:
   category: scan
   name: nmap
   image: instrumentisto/nmap:latest
-  atkCommand: nmap {{.TargetAddress}} -p 70-80,443,8080 -sU -sV --version-light -T3
+  atkCommand: nmap $TARGET_IP -p 70-80,443,8080 -sU -sV --version-light -T3
   # atkTime: 5s
 target:
   category: webserver

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
 	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
@@ -16,34 +15,37 @@ type ScenarioScheduleRequest struct {
 	OutputDir    string
 }
 
+var (
+	processingPods []*ProcessingPod
+	mutex          sync.Mutex // Mutex to protect access to processingPods
+)
+
 // DeployFlowExtractionPods creates the flow extraction pods if they do not exist yet.
-func DeployFlowExtractionPods() {
+func DeployFlowExtractionPods(processingPodPaths []string) {
 	var wg sync.WaitGroup
 	log.Print("Creating flow extraction pods")
 
-	for _, processingPod := range scenario.ProcessingPods {
+	for _, processingPodPath := range processingPodPaths {
 		wg.Add(1)
-		go func(processingPod scenario.ProcessingPod) {
+		go func(path string) {
 			defer wg.Done()
-
-			exists, err := kubeapi.PodExists(processingPod.Name)
+			processingPod, err := ReadProcessingPod(path)
 			if err != nil {
-				log.Fatalf("Error checking if pod %s exists: %v\n", processingPod.Name, err)
+				log.Fatalf("Error reading processing pod: %v", err)
 			}
-			if !exists {
-				log.Printf("Creating Pod %s\n", processingPod.Name)
-				podSpec := scenario.ProcessingPodSpec(processingPod.Name, processingPod.Image)
-				_, err = kubeapi.CreateRunningPod(podSpec)
-				if err != nil {
-					log.Fatalf("Error running processing pod: %v", err)
-				}
-				log.Printf("Pod %s created\n", processingPod.Name)
-			} else {
-				log.Printf("Pod %s already exists\n", processingPod.Name)
+			err = processingPod.DeployPod()
+			if err != nil {
+				log.Fatalf("Error deploying processing pod: %v", err)
 			}
-		}(processingPod)
+
+			// Lock the mutex before accessing the shared slice
+			mutex.Lock()
+			processingPods = append(processingPods, processingPod)
+			mutex.Unlock() // Unlock the mutex after updating the slice
+		}(processingPodPath)
 	}
 	wg.Wait()
+	log.Print("Flow extraction pods Created")
 }
 
 // Goroutine receiving scenario requests and scheduling them for execution
@@ -75,38 +77,27 @@ func ScheduleScenario(scenarioPath string, outputDir string) (*scenario.Scenario
 	}
 	scene.OutputDir = scenarioOutputFolder
 
-	// TODO implement maximum concurrent scenarios
 	log.Printf("Scenario starting: %s\n", scene.Name)
 	err = scene.Execute()
 	if err != nil {
 		return scene, fmt.Errorf("error executing scenario: %v", err)
 	}
 
-	// Upload the pcap file to the processing pods
-	log.Printf("Uploading pcap to processingpods for scenario %v...", scene.Name)
-	kubeapi.CopyFileToPod("cicflowmeter", "cicflowmeter", filepath.Join(scene.OutputDir, "/dump.pcap"), filepath.Join("/data/pcap", scene.Name+".pcap"))
-	kubeapi.CopyFileToPod("rustiflow", "rustiflow", filepath.Join(scene.OutputDir, "/dump.pcap"), filepath.Join("/data/pcap", scene.Name+".pcap"))
-
-	// Perform flow reconstruction and feature extraction
-	err = scene.AnalysePcap()
-	if err != nil {
-		return scene, fmt.Errorf("error analysing pcap file: %v", err)
+	// Process the pcap file concurrently by all the processing pods
+	log.Printf("Analyzing traffic for scenario %v...", scene.Name)
+	var wg sync.WaitGroup
+	for _, pod := range processingPods {
+		wg.Add(1)
+		go func(pod *ProcessingPod, scene *scenario.Scenario) {
+			defer wg.Done()
+			err = pod.ProcessPcap(filepath.Join(scene.OutputDir, "dump.pcap"), scene)
+			if err != nil {
+				log.Printf("error analysing the pcap at processing pod %v: %v", pod.Name, err)
+			}
+		}(pod, scene)
 	}
-
-	// Copy analysis results to local and remove file from pod
-	log.Printf("Downloading flows for scenario %v...", scene.Name)
-	cicFlowPath := filepath.Join(scene.OutputDir, "cic-flows.csv")
-	rustiFlowPath := filepath.Join(scene.OutputDir, "rustiflow.csv")
-	_ = kubeapi.CopyFileFromPod("cicflowmeter", "cicflowmeter", "/data/flow/"+scene.Name+".pcap_flow.csv", cicFlowPath, false)
-	_ = kubeapi.CopyFileFromPod("rustiflow", "rustiflow", "/data/flow/"+scene.Name+".csv", rustiFlowPath, false)
-
-	// Automatically labeling of the flow CSV files
-	log.Printf("Automatically labeling flows for scenario %v...", scene.Name)
-	// _ = scene.AddLabelsToFlowsCSV(cicFlowPath, true)
-	err = scene.AddLabelsToFlowsCSV(rustiFlowPath, false)
-	if err != nil {
-		return scene, fmt.Errorf("error adding labels to flow CSV: %v", err)
-	}
+	wg.Wait()
+	log.Println("Traffic analysis completed for scenario: ", scene.Name)
 
 	log.Printf("Scenario finished: %s\n", scene.Name)
 	return scene, nil

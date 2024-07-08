@@ -108,25 +108,25 @@ func ProcessingPodSpec(name string, image string) *apiv1.Pod {
 					TTY:     true,
 					VolumeMounts: []apiv1.VolumeMount{
 						{
-							Name:      "node-storage-pcap",
-							MountPath: "/data/pcap",
+							Name:      "node-storage-input",
+							MountPath: "/data/input",
 						},
 						{
-							Name:      "node-storage-flow",
-							MountPath: "/data/flow",
+							Name:      "node-storage-output",
+							MountPath: "/data/output",
 						},
 					},
 				},
 			},
 			Volumes: []apiv1.Volume{
 				{
-					Name: "node-storage-pcap",
+					Name: "node-storage-input",
 					VolumeSource: apiv1.VolumeSource{
 						EmptyDir: &apiv1.EmptyDirVolumeSource{},
 					},
 				},
 				{
-					Name: "node-storage-flow",
+					Name: "node-storage-output",
 					VolumeSource: apiv1.VolumeSource{
 						EmptyDir: &apiv1.EmptyDirVolumeSource{},
 					},

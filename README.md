@@ -43,11 +43,11 @@ go run main.go --dir ./example
 ### Running Scenarios
 
 1. Ensure your Kubernetes cluster is up and running.
-2. Place your scenario YAML files in the specified directory.
+2. Place your scenario and processing YAML files in the specified directories.
 3. Execute the framework using the command above.
 4. The framework will:
 
-    1. Parse the scenario files.
+    1. Parse the processing and scenario files.
     2. Create the necessary pods.
     3. Asynchronously execute the attacks.
     4. Capture all traffic received by the target to pcap file.
@@ -62,13 +62,13 @@ A scenario file is a YAML file defining the attacker and target pods. Below is a
 attacker:
   name: nmap
   image: instrumentisto/nmap:latest
-  atkCommand: nmap {{.TargetAddress}} -p 0-80,443,8080 -sV --version-light -T3
+  atkCommand: nmap $TARGET_IP -p 0-80,443,8080 -sV --version-light -T3
   atkTime: 10s # Optional: Leave empty to execute atkCommand until it finishes.
   category: scan # Optional
 target:
   name: httpd
   image: httpd:2.4.38
-  filter: "((dst host {{.AttackAddress}} and src host {{.TargetAddress}}) or (dst host {{.TargetAddress}} and src host {{.AttackAddress}})) and not arp" # Optional, default
+  filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp" # Optional, default
   ports:
   - 80
   category: webserver # Optional
@@ -80,3 +80,35 @@ labels: # Optional, if present it will be included as extra columns in the flows
   subcategory: "nmap"
 ```
 
+## Processing Pods
+
+Processing pods analyze the traffic received by the target during scenario execution. This traffic is captured by `tcpdump`. Each processing pod requires the following specifications:
+
+- **Name**: A unique identifier for the processing pod. Will be used as filename for output files.
+- **Container Image**: The Docker image to be used for the processing pod.
+- **Command**: The command that starts the processing of the pcap file.
+
+### Command Details
+
+- **Environment Variables**:
+  - `$INPUT_FILE`: The file path to the pcap file to be processed.
+  - `$OUTPUT_FILE`: The file path where the processing results should be written. This file will be downloaded by `containercap`.
+  - `$INPUT_FILE_NAME`: A unique value for each scenario, equal to the filename of `$INPUT_FILE` without the '.pcap' extension.
+
+### Important Considerations
+
+- Ensure output files are unique to avoid concurrency issues when multiple scenarios run concurrently. Use `$INPUT_FILE_NAME` to generate unique output file names.
+
+### Examples
+
+```yaml
+name: cicflowmeter
+containerImage: mielverkerken/cicflowmeter:latest
+command: "/CICFlowMeter/bin/cfm $INPUT_FILE /data/output/ && mv /data/output/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE"
+```
+
+```yaml
+name: rustiflow
+containerImage: ghcr.io/matissecallewaert/rustiflow:slim
+command: "rustiflow pcap cic-flow 120 $INPUT_FILE csv $OUTPUT_FILE"
+```

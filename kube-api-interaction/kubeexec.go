@@ -14,15 +14,14 @@ import (
 )
 
 type ExecOptions struct {
-	Command       []string
-	Namespace     string
-	PodName       string
-	ContainerName string
-	Stdin         io.Reader
-	CaptureStdout bool
-	CaptureStderr bool
-	// If false, whitespace in std{err,out} will be removed.
-	PreserveWhitespace bool
+	Command            []string
+	Namespace          string
+	PodName            string
+	ContainerName      string
+	Stdin              io.Reader
+	CaptureStdout      bool
+	CaptureStderr      bool
+	PreserveWhitespace bool // If false, whitespace in std{err,out} will be removed.
 }
 
 // ExecWithOptions is a function that executes a command in a specified container using the Kubernetes API.
@@ -80,11 +79,10 @@ func ExecWithOptions(options ExecOptions) (string, string, error) {
 //   - error: An error object indicating any errors encountered while executing the command.
 func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) (string, string, error) {
 	return ExecWithOptions(ExecOptions{
-		Command:       cmd,
-		Namespace:     nameSpace,
-		PodName:       podName,
-		ContainerName: containerName,
-
+		Command:            cmd,
+		Namespace:          nameSpace,
+		PodName:            podName,
+		ContainerName:      containerName,
 		Stdin:              nil,
 		CaptureStdout:      true,
 		CaptureStderr:      true,
@@ -124,6 +122,15 @@ func ExecBashInContainer(nameSpace, podName, containerName, cmd string) (string,
 //   - stderr: A string containing the standard error output of the executed command.
 func ExecShellInContainer(nameSpace, podName, containerName, cmd string) (string, string, error) {
 	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
+}
+
+func ExecShellInContainerWithEnvVars(namespace string, podName string, containerName string, cmd string, envVars map[string]string) (string, string, error) {
+	commandWithVars := []string{"env"}
+	for key, value := range envVars {
+		commandWithVars = append(commandWithVars, key+"="+value)
+	}
+	commandWithVars = append(commandWithVars, "/bin/sh", "-c", cmd)
+	return ExecCommandInContainer(namespace, podName, containerName, commandWithVars...)
 }
 
 // execute is a helper function used internally to execute a command in a container.

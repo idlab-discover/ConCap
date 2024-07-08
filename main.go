@@ -16,7 +16,7 @@ import (
 type FlagStore struct {
 	Directory       string `short:"d" long:"dir" description:"The mount path on the host" required:"true"`
 	Scenario        string `short:"s" long:"scenario" description:"The scenario's to run, default=all" optional:"true" default:"all"`
-	NumberOfWorkers int    `short:"w" long:"workers" description:"The number of concurrent workers that will execute scenarios" default:"1"`
+	NumberOfWorkers int    `short:"w" long:"workers" description:"The number of concurrent workers that will execute scenarios. If NumberOfWorkers is greater than the number of scenarios, a maximum of 1 worker per scenario will be spawned." default:"1"`
 }
 
 var flagstore FlagStore
@@ -32,6 +32,7 @@ func init() {
 func main() {
 	outputDirAbsPath, _ := filepath.Abs(flagstore.Directory)
 	scenarioDir := filepath.Join(outputDirAbsPath, "scenarios")
+	processingDir := filepath.Join(outputDirAbsPath, "processingpods")
 	completedDir := filepath.Join(outputDirAbsPath, "completed")
 
 	// Setup channel to listen for interrupt signal to gracefully shutdown
@@ -50,24 +51,21 @@ func main() {
 		log.Fatalf("Scenario directory does not exist: %s", scenarioDir)
 	}
 
-	dirEntries, err := os.ReadDir(scenarioDir)
-	if err != nil {
-		log.Fatalf("Error reading scenario directory: %s", err.Error())
+	// Get all the processing pods in the processing directory
+	processingPodPaths := readDir(processingDir)
+	if len(processingPodPaths) == 0 {
+		log.Fatalf("No processing pods found in %s", processingDir)
 	}
 
-	var filepaths []string
-	for _, entry := range dirEntries {
-		if !entry.IsDir() {
-			filepaths = append(filepaths, filepath.Join(scenarioDir, entry.Name()))
-		}
-	}
+	// Get all the scenarios in the scenario directory
+	scenarioPaths := readDir(scenarioDir)
 
-	if len(filepaths) == 0 {
-		log.Println("No scenarios found.")
+	if len(scenarioPaths) == 0 {
+		log.Fatalf("No scenarios found.")
 	} else {
-		log.Println("Number of scenarios found: " + fmt.Sprint(len(filepaths)))
+		log.Println("Number of scenarios found: " + fmt.Sprint(len(scenarioPaths)))
 		// Create the flow extraction pods
-		ccap.DeployFlowExtractionPods()
+		ccap.DeployFlowExtractionPods(processingPodPaths)
 
 		// Create a channel to schedule scenarios
 		scenarioChannel := make(chan ccap.ScenarioScheduleRequest)
@@ -76,14 +74,15 @@ func main() {
 		wg := sync.WaitGroup{}
 
 		// Start the concurrent goroutines to schedule scenarios
-		log.Printf("Starting %d scenario workers", flagstore.NumberOfWorkers)
-		for i := 0; i < flagstore.NumberOfWorkers; i++ {
+		numWorkers := min(flagstore.NumberOfWorkers, len(scenarioPaths))
+		log.Printf("Starting %d scenario workers", numWorkers)
+		for i := 0; i < numWorkers; i++ {
 			wg.Add(1)
 			go ccap.ScheduleScenarioWorker(scenarioChannel, &wg)
 		}
 
 		// Send the scenarios to be executed to the channel
-		for _, scenarioPath := range filepaths {
+		for _, scenarioPath := range scenarioPaths {
 			scenarioChannel <- ccap.ScenarioScheduleRequest{ScenarioPath: scenarioPath, OutputDir: completedDir}
 		}
 
@@ -94,4 +93,20 @@ func main() {
 		wg.Wait()
 		log.Println("All scenarios have finished. ")
 	}
+}
+
+func readDir(dir string) []string {
+	dirEntries, err := os.ReadDir(dir)
+	if err != nil {
+		log.Fatalf("Error reading directory: %s", err.Error())
+	}
+
+	var filepaths []string
+	for _, entry := range dirEntries {
+		if !entry.IsDir() {
+			filepaths = append(filepaths, filepath.Join(dir, entry.Name()))
+		}
+	}
+
+	return filepaths
 }

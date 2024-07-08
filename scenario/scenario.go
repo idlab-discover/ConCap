@@ -4,7 +4,6 @@
 package scenario
 
 import (
-	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
@@ -34,7 +33,7 @@ type Scenario struct {
 	Tag          string             `yaml:"tag"`
 	Labels       map[string]string  `yaml:"labels"`
 	OutputDir    string             `yaml:"-"`
-	Deployment   ScenarioDeployment `yaml:"-"`
+	Deployment   ScenarioDeployment `yaml:"deployment"`
 }
 
 type Attacker struct {
@@ -71,10 +70,7 @@ type ScenarioDeployment struct {
 	TargetPodSpec kubeapi.RunningPodSpec
 }
 
-var ProcessingPods = []ProcessingPod{
-	{"cicflowmeter", "mielverkerken/cicflowmeter:latest"},
-	{"rustiflow", "ghcr.io/matissecallewaert/rustiflow:slim"},
-}
+const defaultTcpdumpFilter = "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
 
 // ReadScenario will unmarshall the yaml back into the in-memory Scenario representation
 func ReadScenario(filePath string) (*Scenario, error) {
@@ -116,7 +112,7 @@ func ReadScenario(filePath string) (*Scenario, error) {
 	s.Name = cleanPodName(strings.TrimSuffix(filepath.Base(fileHandler.Name()), filepath.Ext(fileHandler.Name())))
 
 	if s.Target.Filter == "" {
-		s.Target.Filter = "((dst host {{.AttackAddress}} and src host {{.TargetAddress}}) or (dst host {{.TargetAddress}} and src host {{.AttackAddress}})) and not arp"
+		s.Target.Filter = defaultTcpdumpFilter
 	}
 	return &s, nil
 }
@@ -144,10 +140,10 @@ func (s *Scenario) Execute() error {
 	}
 
 	// 2. Start traffic capture on the target pod
-	s.replacePlaceholdersInCommands(s.Deployment)
 	log.Printf("Starting traffic capture on target pod %v for scenario %v", s.Deployment.TargetPodSpec.PodName, s.Name)
 	// Start tcpdump in the target pod, redirect stdo and stde to a log file, and write the pid to a file for later cleanup
-	stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump", "nohup tcpdump --no-promiscuous-mode --immediate-mode --buffer-size=32768 --packet-buffered -n --interface=eth0 -w /data/dump.pcap '"+s.Target.Filter+"' > /data/tcpdump.log 2>&1 & echo $! > /data/tcpdump.pid")
+	stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump",
+		`nohup tcpdump --no-promiscuous-mode --immediate-mode --buffer-size=32768 --packet-buffered -n --interface=eth0 -w /data/dump.pcap "`+s.GetTrafficFilter()+`" > /data/tcpdump.log 2>&1 & echo $! > /data/tcpdump.pid`)
 	if err != nil {
 		return fmt.Errorf("error starting tcpdump in scenario %v, error: %v", s.Name, err)
 	}
@@ -156,9 +152,10 @@ func (s *Scenario) Execute() error {
 	}
 
 	// 3. Execute the attack
+	envVar := s.GetShellEnvVars()
 	log.Printf("Executing attack '%v' in scenario %v", s.Attacker.AtkCommand, s.Name)
 	s.StartTime = time.Now()
-	stdo, stde, err = kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, s.Deployment.AttackPodSpec.PodName, s.Deployment.AttackPodSpec.ContainerName, s.Attacker.AtkCommand)
+	stdo, stde, err = kubeapi.ExecShellInContainerWithEnvVars(apiv1.NamespaceDefault, s.Deployment.AttackPodSpec.PodName, s.Deployment.AttackPodSpec.ContainerName, s.Attacker.AtkCommand, envVar)
 	if err != nil {
 		return fmt.Errorf("error executing command in scenario %v, error: %v", s.Name, err)
 	}
@@ -169,7 +166,7 @@ func (s *Scenario) Execute() error {
 	log.Printf("Attack finished in scenario %v", s.Name)
 
 	// 4. Download the pcap capture from the target pod and export the updated scenario file
-	_, _, err = kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump", `kill -SIGINT $(cat /data/tcpdump.pid) && while ! ps | grep "\[tcpdump\]" 2>/dev/null; do sleep 1; done`) // Workaround for tcpdump becoming a zombie process because spawned by other shell
+	_, _, err = kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump", `kill -SIGINT $(cat /data/tcpdump.pid) && while ! ps | grep "\[tcpdump\]" 2>/dev/null; do sleep 1; done`) // Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
 	if err != nil {
 		return fmt.Errorf("failed to stop tcpdump in target pod: %v", err)
 	}
@@ -190,40 +187,6 @@ func (s *Scenario) Execute() error {
 	// 5. Cleanup the pods
 	_ = kubeapi.DeletePod(s.Deployment.TargetPodSpec.PodName)
 	_ = kubeapi.DeletePod(s.Deployment.AttackPodSpec.PodName)
-	return nil
-}
-
-// AnalysePcap performs flow reconstruction and feature extraction on the pcap file
-// by executing a command in the processing pods concurrently. When for commands to complete in all processing pods.
-func (s *Scenario) AnalysePcap() error {
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, "cicflowmeter", "cicflowmeter", "/CICFlowMeter/bin/cfm /data/pcap/"+s.Name+".pcap /data/flow/")
-		if err != nil {
-			log.Println(s.Name + " : " + s.Attacker.Name + " : error: " + err.Error())
-		}
-		if stde != "" {
-			log.Println(s.Name + " : " + s.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		_, _, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, "rustiflow", "rustiflow", "rustiflow pcap cic-flow 120 /data/pcap/"+s.Name+".pcap csv /data/flow/"+s.Name+".csv")
-		if err != nil {
-			log.Println(s.Name + " : " + s.Attacker.Name + " : error: " + err.Error())
-		}
-		// TODO fix rustiflow to not output logging to stderr
-		// if stde != "" {
-		// 	log.Println(scenario.Name + " : " + scenario.Attacker.Name + " : stdout: " + stdo + "\n\t stderr: " + stde)
-		// }
-	}()
-
-	wg.Wait()
-	log.Println("Flow reconstruction & feature extraction completed for scenario: ", s.Name)
 	return nil
 }
 
@@ -293,70 +256,6 @@ func (s *Scenario) DeletePods() error {
 	return nil
 }
 
-// AddLabelsToFlowsCSV adds the labels of the scenario to the flows CSV file.
-// The labels are stored in a map. The keys are added to the header of the CSV file if addHeader is true, and the values are added to the rows.
-//
-// Parameters:
-// - filepath: the path to the CSV file
-// - addHeader: whether to add the labels to the header of the CSV file
-//
-// Returns an error if the file cannot be opened, read, or written to.
-func (s *Scenario) AddLabelsToFlowsCSV(filepath string, addHeader bool) error {
-	// Open the CSV file
-	file, err := os.Open(filepath)
-	if err != nil {
-		return fmt.Errorf("failed to open CSV file: %w", err)
-	}
-
-	// Read the CSV file
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return fmt.Errorf("failed to read CSV file: %w", err)
-	}
-
-	// Close the original file to allow reopening it in write mode
-	file.Close()
-
-	// Extract the headers and values from the scenario file
-	keys := make([]string, 0, len(s.Labels))
-	values := make([]string, 0, len(s.Labels))
-
-	for key, value := range s.Labels {
-		keys = append(keys, key)
-		values = append(values, value)
-	}
-
-	// if addHeader is true, add the headers to the first row
-	i := 0
-	if addHeader {
-		records[0] = append(records[0], keys...)
-		i = 1
-	}
-
-	// Add the labels to the rest of the rows
-	for ; i < len(records); i++ {
-		records[i] = append(records[i], values...)
-	}
-
-	// Reopen the file in write mode
-	file, err = os.OpenFile(filepath, os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return fmt.Errorf("error reopening file for writing: %v", err)
-	}
-	defer file.Close()
-
-	// Write the updated records back to the original file
-	writer := csv.NewWriter(file)
-	if err := writer.WriteAll(records); err != nil {
-		return fmt.Errorf("error writing to CSV file: %v", err)
-	}
-
-	// Close the writer to ensure all data is flushed
-	writer.Flush()
-	return nil
-}
-
 // GetTimeout converts a time string (e.g., "10s", "2m", "1h") to a standardized
 // string representation of seconds (e.g., "600s" for "10m").
 // It returns an error if the input is in an unsupported format.
@@ -376,10 +275,30 @@ func cleanPodName(name string) string {
 	return replacer.Replace(name)
 }
 
-// Replaces the placeholders in the commands with the actual pod IPs
-// Available placeholders: '{{.AttackAddress}}', '{{.TargetAddress}}'
-func (s *Scenario) replacePlaceholdersInCommands(deploymentSpec ScenarioDeployment) {
-	s.Target.Filter = strings.ReplaceAll(s.Target.Filter, "{{.AttackAddress}}", deploymentSpec.AttackPodSpec.PodIP)
-	s.Target.Filter = strings.ReplaceAll(s.Target.Filter, "{{.TargetAddress}}", deploymentSpec.TargetPodSpec.PodIP)
-	s.Attacker.AtkCommand = strings.ReplaceAll(s.Attacker.AtkCommand, "{{.TargetAddress}}", deploymentSpec.TargetPodSpec.PodIP)
+// Returns the tcpdump filter for the scenario with the placeholders replaced by the actual pod IPs if scenario is already deployed
+// Available placeholders: $ATTACKER_IP, $TARGET_IP
+func (s *Scenario) GetTrafficFilter() string {
+	if s.Deployment != (ScenarioDeployment{}) {
+		replacer := strings.NewReplacer(
+			"$ATTACKER_IP", s.Deployment.AttackPodSpec.PodIP,
+			"$TARGET_IP", s.Deployment.TargetPodSpec.PodIP)
+		return replacer.Replace(s.Target.Filter)
+	}
+	return s.Target.Filter
+}
+
+// Returns the environment variables for the shell command to be executed in the pods as a map.
+// Available variables: $ATTACKER_IP, $TARGET_IP
+func (s *Scenario) GetShellEnvVars() map[string]string {
+	envVars := make(map[string]string)
+	envVars["ATTACKER_IP"] = s.Deployment.AttackPodSpec.PodIP
+	envVars["TARGET_IP"] = s.Deployment.TargetPodSpec.PodIP
+	return envVars
+}
+
+func (s ScenarioDeployment) MarshalYAML() (interface{}, error) {
+	return map[string]string{
+		"attacker": s.AttackPodSpec.PodIP,
+		"target":   s.TargetPodSpec.PodIP,
+	}, nil
 }
