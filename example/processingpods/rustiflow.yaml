@@ -1,0 +1,3 @@
+name: rustiflow
+containerImage: ghcr.io/matissecallewaert/rustiflow:slim
+command: "rustiflow pcap cic-flow 120 $INPUT_FILE csv $OUTPUT_FILE"
