@@ -1,6 +1,8 @@
 
 # ContainerCap
 
+![Demo Video](containercap-demo.gif)
+
 `containercap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and a target, `containercap` will parse the scenario and execute it. All traffic towards the target will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `containercap` framework.
 
 ## Features
