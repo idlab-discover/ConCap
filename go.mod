@@ -1,4 +1,4 @@
-module github.com/mielverkerken/concap
+module github.com/idlab-discover/concap
 
 go 1.22.0
 
