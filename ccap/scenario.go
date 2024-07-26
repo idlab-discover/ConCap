@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	kubeapi "github.com/mielverkerken/concap/kube-api-interaction"
+	kubeapi "github.com/idlab-discover/concap/kube-api-interaction"
 	"gopkg.in/yaml.v2"
 	apiv1 "k8s.io/api/core/v1"
 )

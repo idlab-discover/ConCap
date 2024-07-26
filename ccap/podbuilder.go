@@ -13,8 +13,8 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 			Name:      cleanPodName(s.Name + "-attacker-" + s.Attacker.Name),
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
-				"containercap": "attacker-pod",
-				"scenario":     s.Name,
+				"concap":   "attacker-pod",
+				"scenario": s.Name,
 			},
 		},
 		Spec: apiv1.PodSpec{
@@ -40,8 +40,8 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 			Name:      cleanPodName(s.Name + "-target-" + s.Target.Name),
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
-				"containercap": "target-pod",
-				"scenario":     s.Name,
+				"concap":   "target-pod",
+				"scenario": s.Name,
 			},
 		},
 
@@ -86,7 +86,7 @@ func ProcessingPodSpec(name string, image string) *apiv1.Pod {
 			Name:      name,
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
-				"containercap": "processing-pod",
+				"concap": "processing-pod",
 			},
 		},
 		Spec: apiv1.PodSpec{

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/idlab-discover/concap/ccap"
 	"github.com/jessevdk/go-flags"
-	"github.com/mielverkerken/concap/ccap"
 )
 
 type FlagStore struct {
