@@ -1,9 +1,9 @@
 
-# ContainerCap
+# ConCap
 
-![Demo Video](containercap-demo.gif)
+![Demo Video](concap-demo.gif)
 
-`containercap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and a target, `containercap` will parse the scenario and execute it. All traffic towards the target will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `containercap` framework.
+`concap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and a target, `concap` will parse the scenario and execute it. All traffic towards the target will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `concap` framework.
 
 
 ## Features
@@ -40,7 +40,7 @@ go build
 ```sh
 go run main.go --dir ./example
 # OR (after building the repository)
-./containercap --dir ./example
+./concap --dir ./example
 ```
 
 ### Running Scenarios
@@ -89,7 +89,7 @@ Processing pods analyze the traffic received by the target during scenario execu
 
 - **Environment Variables**:
   - `$INPUT_FILE`: The file path to the pcap file to be processed.
-  - `$OUTPUT_FILE`: The file path where the processing results should be written. This file will be downloaded by `containercap`.
+  - `$OUTPUT_FILE`: The file path where the processing results should be written. This file will be downloaded by `concap`.
   - `$INPUT_FILE_NAME`: A unique value for each scenario, equal to the filename of `$INPUT_FILE` without the '.pcap' extension.
 
 ### Important Considerations

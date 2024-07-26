@@ -1,0 +1,12 @@
+attacker:
+  name: nmap
+  image: instrumentisto/nmap:latest
+  atkCommand: nmap $TARGET_IP -Pn -p 70-80,443,8080 -sS
+  # atkTime: 5s # Optional: Leave empty to execute atkCommand until it finishes.
+target:
+  name: httpd
+  image: httpd:2.4.38
+labels:
+  label: 1
+  category: "scanning"
+  subcategory: "nmap"

@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"github.com/jessevdk/go-flags"
-	"gitlab.ilabt.imec.be/lpdhooge/containercap/ccap"
+	"github.com/mielverkerken/concap/ccap"
 )
 
 type FlagStore struct {

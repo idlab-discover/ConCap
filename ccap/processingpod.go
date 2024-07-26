@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
+	kubeapi "github.com/mielverkerken/concap/kube-api-interaction"
 	"gopkg.in/yaml.v2"
 	apiv1 "k8s.io/api/core/v1"
 )

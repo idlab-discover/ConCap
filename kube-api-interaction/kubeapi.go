@@ -176,7 +176,7 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
 
-	// Execute the command on the machine running containercap
+	// Execute the command on the machine running concap
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error: %v\n", err)
@@ -217,7 +217,7 @@ func CopyFileToPod(podName string, containerName string, sourcePath string, dest
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
 
-	// Execute the command on the machine running containercap
+	// Execute the command on the machine running concap
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error: %v\n", err)

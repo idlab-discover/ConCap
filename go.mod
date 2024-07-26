@@ -1,6 +1,8 @@
-module gitlab.ilabt.imec.be/lpdhooge/containercap
+module github.com/mielverkerken/concap
 
 go 1.22.0
+
+replace github.com/mielverkerken/concap => ./concap
 
 require (
 	github.com/google/uuid v1.6.0
