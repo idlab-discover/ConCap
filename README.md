@@ -5,6 +5,7 @@
 
 `containercap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and a target, `containercap` will parse the scenario and execute it. All traffic towards the target will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `containercap` framework.
 
+
 ## Features
 
 - Execute cyberattack scenarios in a controlled Kubernetes environment.
@@ -66,16 +67,10 @@ attacker:
   image: instrumentisto/nmap:latest
   atkCommand: nmap $TARGET_IP -p 0-80,443,8080 -sV --version-light -T3
   atkTime: 10s # Optional: Leave empty to execute atkCommand until it finishes.
-  category: scan # Optional
 target:
   name: httpd
   image: httpd:2.4.38
   filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp" # Optional, default
-  ports:
-  - 80
-  category: webserver # Optional
-tag: "" # Optional
-scenarioType: "" # Optional
 labels: # Optional, if present it will be included as extra columns in the flows CSV. Any key, value combination is allowed here.
   label: 1
   category: "scanning"

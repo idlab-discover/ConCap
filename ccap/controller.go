@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-
-	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 )
 
 type ScenarioScheduleRequest struct {
@@ -64,8 +62,8 @@ func ScheduleScenarioWorker(ch chan ScenarioScheduleRequest, wg *sync.WaitGroup)
 }
 
 // This function is run asynchronously, to allow for simultaneous execution of multiple scenarios at once.
-func ScheduleScenario(scenarioPath string, outputDir string) (*scenario.Scenario, error) {
-	scene, err := scenario.ReadScenario(scenarioPath)
+func ScheduleScenario(scenarioPath string, outputDir string) (*Scenario, error) {
+	scene, err := ReadScenario(scenarioPath)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read scenario: " + scenarioPath)
 	}
@@ -88,7 +86,7 @@ func ScheduleScenario(scenarioPath string, outputDir string) (*scenario.Scenario
 	var wg sync.WaitGroup
 	for _, pod := range processingPods {
 		wg.Add(1)
-		go func(pod *ProcessingPod, scene *scenario.Scenario) {
+		go func(pod *ProcessingPod, scene *Scenario) {
 			defer wg.Done()
 			err = pod.ProcessPcap(filepath.Join(scene.OutputDir, "dump.pcap"), scene)
 			if err != nil {

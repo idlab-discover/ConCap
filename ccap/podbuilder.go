@@ -1,4 +1,4 @@
-package scenario
+package ccap
 
 import (
 	"math/rand"
@@ -14,8 +14,7 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"containercap": "attacker-pod",
-				"category":     string(s.Attacker.Category),
-				"scenarioType": string(s.ScenarioType),
+				"scenario":     s.Name,
 			},
 		},
 		Spec: apiv1.PodSpec{
@@ -42,8 +41,7 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"containercap": "target-pod",
-				"category":     string(s.Target.Category),
-				"scenarioType": string(s.ScenarioType),
+				"scenario":     s.Name,
 			},
 		},
 
@@ -55,13 +53,6 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 					Image: s.Target.Image,
 					Stdin: true,
 					TTY:   true,
-					Ports: []apiv1.ContainerPort{
-						{
-							Name:          RandStringRunes(8),
-							Protocol:      apiv1.ProtocolTCP,
-							ContainerPort: s.Target.Ports[0],
-						},
-					},
 				},
 				{
 					Name:  "tcpdump",

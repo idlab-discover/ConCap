@@ -99,8 +99,7 @@ func CreateRunningPod(pod *apiv1.Pod) (RunningPodSpec, error) {
 }
 
 // SetPodSpec is a helper function that returns a structured object that contains some of the relevant specifications
-// of the given Kubernetes Pod. It extracts the Pod's name, container image, category,
-// scenario type, container capability, container name, and Pod IP from the provided Pod
+// of the given Kubernetes Pod. It extracts the Pod's name, container imag, container name, and Pod IP from the provided Pod
 // variable, and organizes them into a flat struct of type RunningPodSpec.
 //
 // Parameters:

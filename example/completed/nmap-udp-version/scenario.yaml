@@ -1,8 +1,8 @@
-uuid: 5c4fe88b-6707-4e9e-94e6-d8fec745ef27
+uuid: 0c117703-935f-4089-8b8f-5bf78e9f9b8b
 name: nmap-udp-version
 scenarioType: ""
-startTime: 2024-07-08T13:37:00.092860899+02:00
-stopTime: 2024-07-08T13:37:15.924565033+02:00
+startTime: 2024-07-19T11:12:27.750347346+02:00
+stopTime: 2024-07-19T11:12:44.905374451+02:00
 attacker:
   category: scan
   name: nmap
@@ -24,5 +24,5 @@ labels:
   label: "1"
   subcategory: nmap
 deployment:
-  attacker: 192.168.126.247
-  target: 192.168.126.205
+  attacker: 192.168.177.151
+  target: 192.168.126.204

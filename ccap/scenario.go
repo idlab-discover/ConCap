@@ -1,7 +1,7 @@
 // Package scenario handles our scenario specification through a number of structs.
 // It also contains the podbuilder which fills in the Kubernetes templates for pods with the appropriate information
 // These scenario files are exported to yaml and serve as the starting point of every experiment
-package scenario
+package ccap
 
 import (
 	"fmt"
@@ -22,22 +22,18 @@ import (
 const EmptyAttackDuration = ""
 
 type Scenario struct {
-	UUID         uuid.UUID          `yaml:"uuid"`
-	Name         string             `yaml:"name"`
-	ScenarioType string             `yaml:"scenarioType"`
-	StartTime    time.Time          `yaml:"startTime"`
-	StopTime     time.Time          `yaml:"stopTime"`
-	Attacker     Attacker           `yaml:"attacker"`
-	Target       Target             `yaml:"target"`
-	Support      []Support          `yaml:"support"`
-	Tag          string             `yaml:"tag"`
-	Labels       map[string]string  `yaml:"labels"`
-	OutputDir    string             `yaml:"-"`
-	Deployment   ScenarioDeployment `yaml:"deployment"`
+	UUID       uuid.UUID          `yaml:"uuid"`
+	Name       string             `yaml:"name"`
+	StartTime  time.Time          `yaml:"startTime"`
+	StopTime   time.Time          `yaml:"stopTime"`
+	Attacker   Attacker           `yaml:"attacker"`
+	Target     Target             `yaml:"target"`
+	Labels     map[string]string  `yaml:"labels"`
+	OutputDir  string             `yaml:"-"`
+	Deployment ScenarioDeployment `yaml:"deployment"`
 }
 
 type Attacker struct {
-	Category   string `yaml:"category"`
 	Name       string `yaml:"name"`
 	Image      string `yaml:"image"`
 	AtkCommand string `yaml:"atkCommand"`
@@ -45,24 +41,9 @@ type Attacker struct {
 }
 
 type Target struct {
-	Category string  `yaml:"category"`
-	Name     string  `yaml:"name"`
-	Image    string  `yaml:"image"`
-	Ports    []int32 `yaml:"ports"`
-	Filter   string  `yaml:"filter"`
-}
-
-type Support struct {
-	Category   string  `yaml:"category"`
-	Name       string  `yaml:"name"`
-	Image      string  `yaml:"image"`
-	SupCommand string  `yaml:"supCommand"`
-	Ports      []int32 `yaml:"ports"`
-}
-
-type ProcessingPod struct {
-	Name  string
-	Image string
+	Name   string `yaml:"name"`
+	Image  string `yaml:"image"`
+	Filter string `yaml:"filter"`
 }
 
 type ScenarioDeployment struct {
@@ -190,7 +171,7 @@ func (s *Scenario) Execute() error {
 	return nil
 }
 
-// DeployPods deploys the attacker, target and support pods for the scenario in a concurrent manner.
+// DeployPods deploys the attacker and target pods for the scenario in a concurrent manner.
 // It waits for all pods to be running before returning.
 func (s *Scenario) DeployPods() (*Scenario, error) {
 	log.Println("Deploying pods for scenario: ", s.Name)
@@ -223,15 +204,14 @@ func (s *Scenario) DeployPods() (*Scenario, error) {
 		}
 		s.Deployment.TargetPodSpec = podspec
 	}()
-	// 3. Deploy the support pod(s)
 
-	// 4. Wait for all pods to be running
+	// 3. Wait for all pods to be running
 	log.Println("Waiting for pods to be running for scenario: ", s.Name)
 	wg.Wait()
 	log.Println("All pods are running for scenario: ", s.Name)
 	close(errChan)
 
-	// 5. Check for errors and return values
+	// 4. Check for errors and return values
 	for err := range errChan {
 		if err != nil {
 			return s, err

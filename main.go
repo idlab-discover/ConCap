@@ -15,7 +15,7 @@ import (
 
 type FlagStore struct {
 	Directory       string `short:"d" long:"dir" description:"The mount path on the host" required:"true"`
-	Scenario        string `short:"s" long:"scenario" description:"The scenario's to run, default=all" optional:"true" default:"all"`
+	Scenario        string `short:"s" long:"scenario" description:"The scenario's to run, default=all" default:"all"`
 	NumberOfWorkers int    `short:"w" long:"workers" description:"The number of concurrent workers that will execute scenarios. If NumberOfWorkers is greater than the number of scenarios, a maximum of 1 worker per scenario will be spawned." default:"1"`
 }
 
@@ -63,6 +63,16 @@ func main() {
 	if len(scenarioPaths) == 0 {
 		log.Fatalf("No scenarios found.")
 	} else {
+		if flagstore.Scenario != "all" {
+			// Specific scenario is given as parameter
+			scenario_path := filepath.Join(scenarioDir, flagstore.Scenario)
+			log.Printf("Scenarion %s selected to be run", flagstore.Scenario)
+			_, err := os.Stat(scenario_path)
+			if err != nil {
+				log.Fatalf("Error opening specified scenario %s", scenario_path)
+			}
+			scenarioPaths = []string{scenario_path}
+		}
 		log.Println("Number of scenarios found: " + fmt.Sprint(len(scenarioPaths)))
 		// Create the flow extraction pods
 		ccap.DeployFlowExtractionPods(processingPodPaths)

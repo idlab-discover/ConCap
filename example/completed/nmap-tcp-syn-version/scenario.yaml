@@ -1,28 +1,21 @@
-uuid: 34e40efc-2a3d-46d1-9dc8-39e49d32d7c9
+uuid: 00a0509e-3dd5-462f-a9ae-b2d7bc143c7f
 name: nmap-tcp-syn-version
-scenarioType: ""
-startTime: 2024-07-08T13:36:51.039646262+02:00
-stopTime: 2024-07-08T13:36:57.754998494+02:00
+startTime: 2024-07-26T19:46:41.633278112+02:00
+stopTime: 2024-07-26T19:46:48.910447099+02:00
 attacker:
-  category: scan
   name: nmap
   image: instrumentisto/nmap:latest
   atkCommand: nmap $TARGET_IP -p 70-80,443,8080 -sS -sV --version-light -T3
   atkTime: ""
 target:
-  category: webserver
   name: httpd
   image: httpd:2.4.38
-  ports:
-  - 80
   filter: ((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP
     and src host $ATTACKER_IP)) and not arp
-support: []
-tag: ""
 labels:
   category: scanning
   label: "1"
   subcategory: nmap
 deployment:
-  attacker: 192.168.126.246
-  target: 192.168.126.249
+  attacker: 192.168.126.228
+  target: 192.168.126.224

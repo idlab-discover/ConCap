@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	kubeapi "gitlab.ilabt.imec.be/lpdhooge/containercap/kube-api-interaction"
-	"gitlab.ilabt.imec.be/lpdhooge/containercap/scenario"
 	"gopkg.in/yaml.v2"
 	apiv1 "k8s.io/api/core/v1"
 )
@@ -44,7 +43,7 @@ func ReadProcessingPod(filePath string) (*ProcessingPod, error) {
 	return &pod, nil
 }
 
-func (p *ProcessingPod) ProcessPcap(filePath string, scn *scenario.Scenario) error {
+func (p *ProcessingPod) ProcessPcap(filePath string, scn *Scenario) error {
 	inputFileContainer := filepath.Join("/data/input", scn.Name+".pcap")
 	outputFileContainer := filepath.Join("/data/output", p.Name+".csv")
 	outputFileDownload := filepath.Join(scn.OutputDir, p.Name+".csv")
@@ -106,7 +105,7 @@ func (p *ProcessingPod) DeployPod() error {
 	}
 	if !exists {
 		log.Printf("Creating Pod %s\n", p.Name)
-		podSpec := scenario.ProcessingPodSpec(p.Name, p.ContainerImage)
+		podSpec := ProcessingPodSpec(p.Name, p.ContainerImage)
 		_, err = kubeapi.CreateRunningPod(podSpec)
 		if err != nil {
 			log.Fatalf("Error running processing pod: %v", err)

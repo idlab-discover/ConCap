@@ -1,17 +1,11 @@
-scenarioType: ""
 attacker:
-  category: scan
   name: nmap
   image: instrumentisto/nmap:latest
   atkCommand: nmap $TARGET_IP -p 70-80,443,8080 -sS -sV --version-light -T3
   # atkTime: 5s # Optional: Leave empty to execute atkCommand until it finishes.
 target:
-  category: webserver
   name: httpd
   image: httpd:2.4.38
-  ports:
-  - 80
-tag: ""
 labels:
   label: 1
   category: "scanning"
