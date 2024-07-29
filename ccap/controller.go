@@ -65,7 +65,7 @@ func ScheduleScenarioWorker(ch chan ScenarioScheduleRequest, wg *sync.WaitGroup)
 func ScheduleScenario(scenarioPath string, outputDir string) (*Scenario, error) {
 	scene, err := ReadScenario(scenarioPath)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read scenario: " + scenarioPath)
+		return nil, fmt.Errorf("failed to read scenario %s: %s ", scenarioPath, err)
 	}
 	log.Printf("Scenario loaded: %s\n", scene.Name)
 
