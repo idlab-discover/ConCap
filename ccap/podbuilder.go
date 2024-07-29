@@ -59,18 +59,6 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 
 		Spec: apiv1.PodSpec{
 			RestartPolicy: "Never",
-			InitContainers: []apiv1.Container{
-				{
-					Name:    "init-tc",
-					Image:   "mielverkerken/iproute2",
-					Command: []string{"sh", "-c", s.Network.GetTCCommand()},
-					SecurityContext: &apiv1.SecurityContext{
-						Capabilities: &apiv1.Capabilities{
-							Add: []apiv1.Capability{"NET_ADMIN"},
-						},
-					},
-				},
-			},
 			Containers: []apiv1.Container{
 				{
 					Name:  cleanPodName(s.Target.Name),

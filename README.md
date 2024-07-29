@@ -75,8 +75,8 @@ network: # Optional, uses tc to emulate a realistic network and requires kernel 
   bandwidth: 1gbit # kbit, mbit, gbit
   queueSize: 100ms # us, ms, s
   limit: 10000
-  delay: 1ms 
-  jitter: 1ms # jitter may cause reordering of packets
+  delay: 0ms # latency is sum of delay and jitter
+  jitter: 0ms # jitter may cause reordering of packets
   distribution: normal # uniform, normal, pareto or paretonormal
   loss: 0%
   corrupt: 0%

@@ -4,9 +4,19 @@ attacker:
   atkCommand: nmap $TARGET_IP -p 70-80,443,8080 -sU -sV --version-light -T3
   # atkTime: 5s
 target:
-  category: webserver
   name: httpd
   image: httpd:2.4.38
+network: # Optional, uses tc to emulate a realistic network and requires kernel module sch_netem on nodes in the K8s cluster, install with modprobe sch_netem
+  bandwidth: 1gbit # kbit, mbit, gbit
+  queueSize: 100ms # us, ms, s
+  limit: 10000
+  delay: 0ms 
+  jitter: 0ms # jitter may cause reordering of packets
+  distribution: normal # uniform, normal, pareto or paretonormal
+  loss: 0%
+  corrupt: 0%
+  duplicate: 0%
+  seed: 0 # Seed used to reproduce the randomly generated loss or corruption events
 labels:
   label: 1
   category: "scanning"
