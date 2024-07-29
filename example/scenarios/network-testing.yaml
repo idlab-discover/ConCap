@@ -1,11 +1,12 @@
 attacker:
-  name: nmap
-  image: instrumentisto/nmap:latest
-  atkCommand: nmap $TARGET_IP -Pn -p 70-80,443,8080 -sS
+  name: client
+  image: mielverkerken/networking
+  atkCommand: iperf3 -c $TARGET_IP
   # atkTime: 5s # Optional: Leave empty to execute atkCommand until it finishes.
 target:
-  name: httpd
-  image: httpd:2.4.38
+  name: server
+  image: mielverkerken/networking
+
 network: # Optional, needs kernel module sch_netem on every node in the K8s cluster, install with modprobe sch_netem
   bandwidth: 1gbit # kbit, mbit, gbit
   queueSize: 40ms
@@ -17,7 +18,3 @@ network: # Optional, needs kernel module sch_netem on every node in the K8s clus
   corrupt: 0%
   duplicate: 0%
   seed: 0
-labels:
-  label: 1
-  category: "scanning"
-  subcategory: "nmap"
