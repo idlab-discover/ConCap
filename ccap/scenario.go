@@ -305,8 +305,7 @@ func (s ScenarioDeployment) MarshalYAML() (interface{}, error) {
 func (n *Network) GetTCCommand() string {
 	tcCommand := ""
 	if n.Bandwidth != "" {
-		// Calculate the burst duration based on the bandwidth
-		// The burst duration is set to 5ms
+		// Calculate the burst buffer size based on the bandwidth and a burst duration of 5ms
 		bandwidthBitsPerSecond, err := ParseSize(n.Bandwidth)
 		if err != nil {
 			log.Println("Error parsing bandwidth: ", err)

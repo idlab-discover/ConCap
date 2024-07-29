@@ -1,3 +1,3 @@
 name: cicflowmeter
 containerImage: mielverkerken/cicflowmeter:latest
-command: "/CICFlowMeter/bin/cfm $INPUT_FILE /data/output/ && mv /data/output/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE"
+command: "mkdir -p /data/output/$INPUT_FILE_NAME/ && /CICFlowMeter/bin/cfm $INPUT_FILE /data/output/$INPUT_FILE_NAME/ && mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE"
