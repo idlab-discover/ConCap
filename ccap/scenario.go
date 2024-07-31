@@ -104,6 +104,8 @@ func ReadScenario(filePath string) (*Scenario, error) {
 	if s.Attacker.AtkTime != EmptyAttackDuration {
 		s.Attacker.AtkCommand = "timeout " + s.Attacker.AtkTime + " " + s.Attacker.AtkCommand
 	}
+	// // Append the command to write output to docker logs
+	s.Attacker.AtkCommand += " 2>&1 | tee -a /proc/1/fd/1"
 
 	s.UUID = uuid.New()
 	s.Name = cleanPodName(strings.TrimSuffix(filepath.Base(fileHandler.Name()), filepath.Ext(fileHandler.Name())))
