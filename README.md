@@ -10,8 +10,9 @@
 
 - Execute cyberattack scenarios in a controlled Kubernetes environment.
 - Capture network traffic and extract flow features.
+- Fine-grained network flow labeling.
 - Automate the creation and management of attack and target pods.
-- Download results to the local machine for further analysis.
+- Download results to the local machine for further (ML) analysis.
 
 ## Requirements
 
@@ -55,13 +56,15 @@ go run main.go --dir ./example
     3. Asynchronously execute the attacks.
     4. Capture all traffic received by the target to pcap file.
     5. Preform flow reconstruction and feature extraction to csv file.
+    6. When labels are provided in the scenario definition, the csv file is labeled.
     6. Download output files to your machine.
 
 ## Scenario File
 
-A scenario file is a YAML file defining the attacker and target pods. Below is an example:
+A scenario file is a YAML file defining the attacker and target pods. The filename must be unique and no more than 61 characters. Below is an example:
 
 ```yaml
+# nmap-tcp-syn-version.yaml
 attacker:
   name: nmap
   image: instrumentisto/nmap:latest
@@ -112,7 +115,7 @@ Processing pods analyze the traffic received by the target during scenario execu
 ```yaml
 name: cicflowmeter
 containerImage: mielverkerken/cicflowmeter:latest
-command: "/CICFlowMeter/bin/cfm $INPUT_FILE /data/output/ && mv /data/output/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE"
+command: "mkdir -p /data/output/$INPUT_FILE_NAME/ && /CICFlowMeter/bin/cfm $INPUT_FILE /data/output/$INPUT_FILE_NAME/ && mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE"
 ```
 
 ```yaml
