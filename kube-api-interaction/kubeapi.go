@@ -171,7 +171,7 @@ func PodExists(podName string) (bool, error) {
 //   - An error if there were any issues encountered during the file copy process.
 func CopyFileFromPod(podName string, containerName string, sourcePath string, destPath string, keepFile bool) error {
 	// Construct the kubectl cp command
-	cmd := exec.CommandContext(context.Background(), "kubectl", "cp", fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, sourcePath), destPath, "-c", containerName)
+	cmd := exec.CommandContext(context.Background(), "kubectl", "cp", "--retries=10", fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, sourcePath), destPath, "-c", containerName)
 
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
@@ -212,7 +212,7 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 //   - An error if there were any issues encountered during the file copy process.
 func CopyFileToPod(podName string, containerName string, sourcePath string, destPath string) error {
 	// Construct the kubectl cp command
-	cmd := exec.CommandContext(context.Background(), "kubectl", "cp", sourcePath, fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, destPath), "-c", containerName)
+	cmd := exec.CommandContext(context.Background(), "kubectl", "cp", "--retries=10", sourcePath, fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, destPath), "-c", containerName)
 
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
