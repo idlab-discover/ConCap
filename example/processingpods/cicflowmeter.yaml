@@ -1,5 +1,5 @@
 name: cicflowmeter
-containerImage: mielverkerken/cicflowmeter:1.0.0
+containerImage: ghcr.io/idlab-discover/concap/cicflowmeter:tools-1.0.0
 command: >
   mkdir -p /data/output/$INPUT_FILE_NAME/ &&
   pcapfix $INPUT_FILE -o $INPUT_FILE &&
