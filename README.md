@@ -71,6 +71,17 @@ target:
   name: httpd
   image: httpd:2.4.38
   filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp" # Optional, default
+network: # Optional, uses tc to emulate a realistic network and requires kernel module sch_netem on nodes in the K8s cluster, install with modprobe sch_netem
+  bandwidth: 1gbit # kbit, mbit, gbit
+  queueSize: 100ms # us, ms, s
+  limit: 10000
+  delay: 0ms # latency is sum of delay and jitter
+  jitter: 0ms # jitter may cause reordering of packets
+  distribution: normal # uniform, normal, pareto or paretonormal
+  loss: 0%
+  corrupt: 0%
+  duplicate: 0%
+  seed: 0 # Seed used to reproduce the randomly generated loss or corruption events
 labels: # Optional, if present it will be included as extra columns in the flows CSV. Any key, value combination is allowed here.
   label: 1
   category: "scanning"

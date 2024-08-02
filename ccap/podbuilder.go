@@ -21,6 +21,18 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 			// ImagePullSecrets: []apiv1.LocalObjectReference{
 			// 	{Name: "idlab-gitlab"},
 			// },
+			InitContainers: []apiv1.Container{
+				{
+					Name:    "init-tc",
+					Image:   "mielverkerken/iproute2",
+					Command: []string{"sh", "-c", s.Network.GetTCCommand()},
+					SecurityContext: &apiv1.SecurityContext{
+						Capabilities: &apiv1.Capabilities{
+							Add: []apiv1.Capability{"NET_ADMIN"},
+						},
+					},
+				},
+			},
 			Containers: []apiv1.Container{
 				{
 					Name:    cleanPodName(s.Attacker.Name),
