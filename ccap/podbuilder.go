@@ -68,7 +68,7 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 				},
 				{
 					Name:  "tcpdump",
-					Image: "corfr/tcpdump",
+					Image: "ghcr.io/idlab-discover/concap/tcpdump:1.0.0",
 					// When pods are deployed the actual tcpdump command will be started with correct filter including the IP addresses.
 					Command: []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
 					VolumeMounts: []apiv1.VolumeMount{
