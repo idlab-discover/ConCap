@@ -10,7 +10,7 @@ import (
 func (s *Scenario) AttackPod() *apiv1.Pod {
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cleanPodName(s.Name + "-attacker-" + s.Attacker.Name),
+			Name:      cleanPodName(s.Name + "-A"),
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"concap":   "attacker-pod",
@@ -49,7 +49,7 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 func (s *Scenario) TargetPod() *apiv1.Pod {
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cleanPodName(s.Name + "-target-" + s.Target.Name),
+			Name:      cleanPodName(s.Name + "-T"),
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"concap":   "target-pod",
