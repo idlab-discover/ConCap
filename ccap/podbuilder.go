@@ -24,7 +24,7 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 			InitContainers: []apiv1.Container{
 				{
 					Name:    "init-tc",
-					Image:   "mielverkerken/iproute2",
+					Image:   "ghcr.io/idlab-discover/concap/iproute2:1.0.0",
 					Command: []string{"sh", "-c", s.Network.GetTCCommand()},
 					SecurityContext: &apiv1.SecurityContext{
 						Capabilities: &apiv1.Capabilities{
