@@ -267,10 +267,10 @@ func parseToSeconds(s string) (string, error) {
 	return fmt.Sprint(seconds) + "s", nil
 }
 
-// Returns a cleaned up version of the pod name with spaces and underscores replaced by dashes
+// Returns a cleaned up version of the pod name in lowercase with spaces and underscores replaced by dashes
 func cleanPodName(name string) string {
 	replacer := strings.NewReplacer(" ", "-", "_", "-", "/", "-", ":", "-")
-	return replacer.Replace(name)
+	return strings.ToLower(replacer.Replace(name))
 }
 
 // Returns the tcpdump filter for the scenario with the placeholders replaced by the actual pod IPs if scenario is already deployed
