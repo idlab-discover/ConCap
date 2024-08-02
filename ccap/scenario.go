@@ -165,7 +165,15 @@ func (s *Scenario) Execute() error {
 	log.Printf("Attack finished in scenario %v", s.Name)
 
 	// 4. Download the pcap capture from the target pod and export the updated scenario file
-	_, _, err = kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump", `kill -SIGINT $(cat /data/tcpdump.pid) && while ! ps | grep "\[tcpdump\]" 2>/dev/null; do sleep 1; done`) // Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
+	_, _, err = kubeapi.ExecShellInContainer(
+		apiv1.NamespaceDefault,
+		s.Deployment.TargetPodSpec.PodName,
+		"tcpdump",
+		`kill -SIGINT $(cat /data/tcpdump.pid) && 
+		 while ! ps | grep "\[tcpdump\]" 2>/dev/null; do 
+			 sleep 1; 
+		 done`,
+	) // Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
 	if err != nil {
 		return fmt.Errorf("failed to stop tcpdump in target pod: %v", err)
 	}

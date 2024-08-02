@@ -114,8 +114,14 @@ Processing pods analyze the traffic received by the target during scenario execu
 
 ```yaml
 name: cicflowmeter
-containerImage: mielverkerken/cicflowmeter:latest
-command: "mkdir -p /data/output/$INPUT_FILE_NAME/ && /CICFlowMeter/bin/cfm $INPUT_FILE /data/output/$INPUT_FILE_NAME/ && mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE"
+containerImage: ghcr.io/idlab-discover/concap/cicflowmeter:tools-1.0.0
+command: >
+  mkdir -p /data/output/$INPUT_FILE_NAME/ &&
+  pcapfix $INPUT_FILE -o $INPUT_FILE &&
+  reordercap $INPUT_FILE /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME_fix.pcap &&
+  mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME_fix.pcap $INPUT_FILE &&
+  /CICFlowMeter/bin/cfm $INPUT_FILE /data/output/$INPUT_FILE_NAME/ &&
+  mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE
 ```
 
 ```yaml
