@@ -4,10 +4,27 @@ import (
 	"math/rand"
 
 	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *Scenario) AttackPod() *apiv1.Pod {
+	resourceRequirements := apiv1.ResourceRequirements{
+		Requests: apiv1.ResourceList{
+			apiv1.ResourceCPU:    resource.MustParse(s.Attacker.CPURequest),
+			apiv1.ResourceMemory: resource.MustParse(s.Attacker.MemRequest),
+		},
+	}
+	// Add CPU and Memory limits if they are provided
+	if s.Attacker.CPULimit != "" || s.Attacker.MemLimit != "" {
+		resourceRequirements.Limits = apiv1.ResourceList{}
+		if s.Attacker.CPULimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceCPU] = resource.MustParse(s.Attacker.CPULimit)
+		}
+		if s.Attacker.MemLimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceMemory] = resource.MustParse(s.Attacker.MemLimit)
+		}
+	}
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cleanPodName(s.Name + "-A"),
@@ -35,11 +52,12 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 			},
 			Containers: []apiv1.Container{
 				{
-					Name:    cleanPodName(s.Attacker.Name),
-					Image:   s.Attacker.Image,
-					Command: []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
-					Stdin:   true,
-					TTY:     true,
+					Name:      cleanPodName(s.Attacker.Name),
+					Image:     s.Attacker.Image,
+					Command:   []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
+					Stdin:     true,
+					TTY:       true,
+					Resources: resourceRequirements,
 				},
 			},
 		},
@@ -47,6 +65,22 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 }
 
 func (s *Scenario) TargetPod() *apiv1.Pod {
+	resourceRequirements := apiv1.ResourceRequirements{
+		Requests: apiv1.ResourceList{
+			apiv1.ResourceCPU:    resource.MustParse(s.Target.CPURequest),
+			apiv1.ResourceMemory: resource.MustParse(s.Target.MemRequest),
+		},
+	}
+	// Add CPU and Memory limits if they are provided
+	if s.Target.CPULimit != "" || s.Target.MemLimit != "" {
+		resourceRequirements.Limits = apiv1.ResourceList{}
+		if s.Target.CPULimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceCPU] = resource.MustParse(s.Target.CPULimit)
+		}
+		if s.Target.MemLimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceMemory] = resource.MustParse(s.Target.MemLimit)
+		}
+	}
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cleanPodName(s.Name + "-T"),
@@ -77,6 +111,7 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 							MountPath: "/data",
 						},
 					},
+					Resources: resourceRequirements,
 				},
 			},
 
@@ -92,10 +127,10 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 	}
 }
 
-func ProcessingPodSpec(name string, image string) *apiv1.Pod {
+func ProcessingPodSpec(processingPod *ProcessingPod) *apiv1.Pod {
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      processingPod.Name,
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"concap": "processing-pod",
@@ -104,8 +139,8 @@ func ProcessingPodSpec(name string, image string) *apiv1.Pod {
 		Spec: apiv1.PodSpec{
 			Containers: []apiv1.Container{
 				{
-					Name:    name,
-					Image:   image,
+					Name:    processingPod.Name,
+					Image:   processingPod.ContainerImage,
 					Command: []string{"tail", "-f", "/dev/null"},
 					Stdin:   true,
 					TTY:     true,
@@ -117,6 +152,12 @@ func ProcessingPodSpec(name string, image string) *apiv1.Pod {
 						{
 							Name:      "node-storage-output",
 							MountPath: "/data/output",
+						},
+					},
+					Resources: apiv1.ResourceRequirements{
+						Requests: apiv1.ResourceList{
+							apiv1.ResourceCPU:    resource.MustParse(processingPod.CPURequest),
+							apiv1.ResourceMemory: resource.MustParse(processingPod.MemRequest),
 						},
 					},
 				},
