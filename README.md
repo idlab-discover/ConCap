@@ -70,10 +70,18 @@ attacker:
   image: instrumentisto/nmap:latest
   atkCommand: nmap $TARGET_IP -p 0-80,443,8080 -sV --version-light -T3
   atkTime: 10s # Optional: Leave empty to execute atkCommand until it finishes.
+  cpuRequest: 100m # Default value: helps K8s with scheduling
+  memRequest: 100Mi # Default value: helps K8s with scheduling
+  cpuLimit: 500m # Optional: empty for no limits
+  memLimit: 500Mi # Optional: empty for no limits
 target:
   name: httpd
   image: httpd:2.4.38
   filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp" # Optional, default
+  cpuRequest: 100m # Default value: helps K8s with scheduling
+  memRequest: 100Mi # Default value: helps K8s with scheduling
+  cpuLimit: 500m # Optional: empty for no limits
+  memLimit: 500Mi # Optional: empty for no limits
 network: # Optional, uses tc to emulate a realistic network and requires kernel module sch_netem on nodes in the K8s cluster, install with modprobe sch_netem
   bandwidth: 1gbit # kbit, mbit, gbit
   queueSize: 100ms # us, ms, s
@@ -98,6 +106,7 @@ Processing pods analyze the traffic received by the target during scenario execu
 - **Name**: A unique identifier for the processing pod. Will be used as filename for output files.
 - **Container Image**: The Docker image to be used for the processing pod.
 - **Command**: The command that starts the processing of the pcap file.
+- **CPU/Memory Request**: Helps K8s with scheduling the pods.
 
 ### Command Details
 
