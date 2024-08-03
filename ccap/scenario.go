@@ -41,12 +41,20 @@ type Attacker struct {
 	Image      string `yaml:"image"`
 	AtkCommand string `yaml:"atkCommand"`
 	AtkTime    string `yaml:"atkTime"`
+	CPURequest string `yaml:"cpuRequest"`
+	CPULimit   string `yaml:"cpuLimit"`
+	MemRequest string `yaml:"memRequest"`
+	MemLimit   string `yaml:"memLimit"`
 }
 
 type Target struct {
-	Name   string `yaml:"name"`
-	Image  string `yaml:"image"`
-	Filter string `yaml:"filter"`
+	Name       string `yaml:"name"`
+	Image      string `yaml:"image"`
+	Filter     string `yaml:"filter"`
+	CPURequest string `yaml:"cpuRequest"`
+	CPULimit   string `yaml:"cpuLimit"`
+	MemRequest string `yaml:"memRequest"`
+	MemLimit   string `yaml:"memLimit"`
 }
 
 type Network struct {
@@ -113,6 +121,21 @@ func ReadScenario(filePath string) (*Scenario, error) {
 	if s.Target.Filter == "" {
 		s.Target.Filter = defaultTcpdumpFilter
 	}
+
+	// Default resource requests to help K8s with scheduling
+	if s.Attacker.CPURequest == "" {
+		s.Attacker.CPURequest = "100m"
+	}
+	if s.Attacker.MemRequest == "" {
+		s.Attacker.MemRequest = "250Mi"
+	}
+	if s.Target.CPURequest == "" {
+		s.Target.CPURequest = "100m"
+	}
+	if s.Target.MemRequest == "" {
+		s.Target.MemRequest = "250Mi"
+	}
+
 	return &s, nil
 }
 

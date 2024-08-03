@@ -3,9 +3,13 @@ attacker:
   image: instrumentisto/nmap:latest
   atkCommand: nmap $TARGET_IP -p 70-80,443,8080 -sU -sV --version-light -T3
   # atkTime: 5s
+  cpuRequest: 100m
+  memRequest: 100Mi
 target:
   name: httpd
   image: httpd:2.4.38
+  cpuRequest: 100m
+  memRequest: 100Mi
 network: # Optional, uses tc to emulate a realistic network and requires kernel module sch_netem on nodes in the K8s cluster, install with modprobe sch_netem
   bandwidth: 1gbit # kbit, mbit, gbit
   queueSize: 100ms # us, ms, s
