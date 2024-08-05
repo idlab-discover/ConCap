@@ -17,6 +17,8 @@ type ProcessingPod struct {
 	Name           string `yaml:"name"`
 	ContainerImage string `yaml:"containerImage"`
 	Command        string `yaml:"command"`
+	CPURequest     string `yaml:"cpuRequest"`
+	MemRequest     string `yaml:"memRequest"`
 }
 
 // ReadProcessingPod will unmarshall the yaml into the in-memory ProcessingPod representation
@@ -38,6 +40,14 @@ func ReadProcessingPod(filePath string) (*ProcessingPod, error) {
 	err = yaml.UnmarshalStrict(b, &pod)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling YAML: %w", err)
+	}
+
+	// Default resource requests to help K8s with scheduling
+	if pod.CPURequest == "" {
+		pod.CPURequest = "100m"
+	}
+	if pod.MemRequest == "" {
+		pod.MemRequest = "250Mi"
 	}
 
 	return &pod, nil
@@ -105,7 +115,7 @@ func (p *ProcessingPod) DeployPod() error {
 	}
 	if !exists {
 		log.Printf("Creating Pod %s\n", p.Name)
-		podSpec := ProcessingPodSpec(p.Name, p.ContainerImage)
+		podSpec := ProcessingPodSpec(p)
 		_, err = kubeapi.CreateRunningPod(podSpec)
 		if err != nil {
 			log.Fatalf("Error running processing pod: %v", err)

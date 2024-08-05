@@ -10,8 +10,9 @@
 
 - Execute cyberattack scenarios in a controlled Kubernetes environment.
 - Capture network traffic and extract flow features.
+- Fine-grained network flow labeling.
 - Automate the creation and management of attack and target pods.
-- Download results to the local machine for further analysis.
+- Download results to the local machine for further (ML) analysis.
 
 ## Requirements
 
@@ -55,22 +56,43 @@ go run main.go --dir ./example
     3. Asynchronously execute the attacks.
     4. Capture all traffic received by the target to pcap file.
     5. Preform flow reconstruction and feature extraction to csv file.
+    6. When labels are provided in the scenario definition, the csv file is labeled.
     6. Download output files to your machine.
 
 ## Scenario File
 
-A scenario file is a YAML file defining the attacker and target pods. Below is an example:
+A scenario file is a YAML file defining the attacker and target pods. The filename must be unique and no more than 61 characters. Below is an example:
 
 ```yaml
+# nmap-tcp-syn-version.yaml
 attacker:
   name: nmap
   image: instrumentisto/nmap:latest
   atkCommand: nmap $TARGET_IP -p 0-80,443,8080 -sV --version-light -T3
   atkTime: 10s # Optional: Leave empty to execute atkCommand until it finishes.
+  cpuRequest: 100m # Default value: helps K8s with scheduling
+  memRequest: 100Mi # Default value: helps K8s with scheduling
+  cpuLimit: 500m # Optional: empty for no limits
+  memLimit: 500Mi # Optional: empty for no limits
 target:
   name: httpd
   image: httpd:2.4.38
   filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp" # Optional, default
+  cpuRequest: 100m # Default value: helps K8s with scheduling
+  memRequest: 100Mi # Default value: helps K8s with scheduling
+  cpuLimit: 500m # Optional: empty for no limits
+  memLimit: 500Mi # Optional: empty for no limits
+network: # Optional, uses tc to emulate a realistic network and requires kernel module sch_netem on nodes in the K8s cluster, install with modprobe sch_netem
+  bandwidth: 1gbit # kbit, mbit, gbit
+  queueSize: 100ms # us, ms, s
+  limit: 10000
+  delay: 0ms # latency is sum of delay and jitter
+  jitter: 0ms # jitter may cause reordering of packets
+  distribution: normal # uniform, normal, pareto or paretonormal
+  loss: 0%
+  corrupt: 0%
+  duplicate: 0%
+  seed: 0 # Seed used to reproduce the randomly generated loss or corruption events
 labels: # Optional, if present it will be included as extra columns in the flows CSV. Any key, value combination is allowed here.
   label: 1
   category: "scanning"
@@ -84,6 +106,7 @@ Processing pods analyze the traffic received by the target during scenario execu
 - **Name**: A unique identifier for the processing pod. Will be used as filename for output files.
 - **Container Image**: The Docker image to be used for the processing pod.
 - **Command**: The command that starts the processing of the pcap file.
+- **CPU/Memory Request**: Helps K8s with scheduling the pods.
 
 ### Command Details
 
@@ -100,8 +123,14 @@ Processing pods analyze the traffic received by the target during scenario execu
 
 ```yaml
 name: cicflowmeter
-containerImage: mielverkerken/cicflowmeter:latest
-command: "/CICFlowMeter/bin/cfm $INPUT_FILE /data/output/ && mv /data/output/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE"
+containerImage: ghcr.io/idlab-discover/concap/cicflowmeter:tools-1.0.0
+command: >
+  mkdir -p /data/output/$INPUT_FILE_NAME/ &&
+  pcapfix $INPUT_FILE -o $INPUT_FILE &&
+  reordercap $INPUT_FILE /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME_fix.pcap &&
+  mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME_fix.pcap $INPUT_FILE &&
+  /CICFlowMeter/bin/cfm $INPUT_FILE /data/output/$INPUT_FILE_NAME/ &&
+  mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE
 ```
 
 ```yaml

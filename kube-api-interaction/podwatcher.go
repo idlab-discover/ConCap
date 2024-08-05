@@ -3,12 +3,15 @@ package kubeapi
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
-	"google.golang.org/appengine/log"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
+	toolsWatch "k8s.io/client-go/tools/watch"
 )
 
 type PodWatcher struct {
@@ -27,7 +30,7 @@ func NewPodWatcher(podsClient v1.PodInterface) PodWatcher {
 func (pw *PodWatcher) Start(ctx context.Context) {
 	go func() {
 		if err := pw.WatchPods(ctx); err != nil {
-			log.Errorf(ctx, "Error watching pods: %v", err)
+			log.Fatalf("Error watching pods: %v", err)
 		}
 	}()
 }
@@ -43,7 +46,7 @@ func (pw *PodWatcher) WaitForPodRunning(ctx context.Context, podName string) (*a
 func (pw *PodWatcher) WaitForPodPhase(ctx context.Context, podName string, desiredPhase apiv1.PodPhase) (*apiv1.Pod, error) {
 	pw.mu.Lock()
 	if _, exists := pw.eventsChans[podName]; exists {
-		log.Warningf(ctx, "Already watching pod %s", podName)
+		fmt.Printf("Already watching pod %s", podName)
 	} else {
 		pw.eventsChans[podName] = make(chan *apiv1.Pod)
 	}
@@ -72,21 +75,28 @@ func (pw *PodWatcher) WaitForPodPhase(ctx context.Context, podName string, desir
 
 // WatchPods watches all pods in the namespace and sends events to the corresponding channels.
 func (pw *PodWatcher) WatchPods(ctx context.Context) error {
-	watch, err := pw.podsClient.Watch(ctx, metav1.ListOptions{})
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+		timeout := int64(60 * 60 * 2) // 2 hours
+		return pw.podsClient.Watch(ctx, metav1.ListOptions{TimeoutSeconds: &timeout})
+	}
+	watcher, err := toolsWatch.NewRetryWatcher("1", &cache.ListWatch{WatchFunc: watchFunc})
 	if err != nil {
 		return err
 	}
-	defer watch.Stop()
+	defer watcher.Stop()
 
 	for {
 		select {
-		case event, ok := <-watch.ResultChan():
+		case <-ctx.Done():
+			// The context is done, so we stop the watcher and exit
+			return nil
+		case event, ok := <-watcher.ResultChan():
 			if !ok {
-				return fmt.Errorf("watch channel closed unexpectedly")
+				return fmt.Errorf("Error: Watch channel is closed")
 			}
 			pod, ok := event.Object.(*apiv1.Pod)
 			if !ok {
-				log.Warningf(ctx, "Unexpected event object while watching pods: %T", event.Object)
+				log.Printf("Unexpected event object while watching pods: %T", event.Object)
 				continue // should not happen, only listen to pod events
 			}
 			pw.mu.Lock()
@@ -95,8 +105,6 @@ func (pw *PodWatcher) WatchPods(ctx context.Context) error {
 				eventsChan <- pod
 			}
 			pw.mu.Unlock()
-		case <-ctx.Done():
-			return nil
 		}
 	}
 }
