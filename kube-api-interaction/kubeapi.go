@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/client-go/util/retry"
 )
 
 type RunningPodSpec struct {
@@ -65,9 +66,21 @@ func init() {
 //   - A pointer to the new Kubernetes Pod object that was created by the function.
 //   - An error if there were any issues encountered during the creation process.
 func CreatePod(ctx context.Context, pod *apiv1.Pod) (*apiv1.Pod, error) {
-	result, err := podsClient.Create(ctx, pod, metav1.CreateOptions{})
+	// result, err := podsClient.Create(ctx, pod, metav1.CreateOptions{})
+	var result *apiv1.Pod
+	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		// Define the errors that you want to retry on
+		return true // Retry on any error
+	}, func() error {
+		var err error
+		result, err = podsClient.Create(ctx, pod, metav1.CreateOptions{})
+		if err != nil {
+			log.Printf("Failed to create pod: %v. Retrying...", err)
+		}
+		return err
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create pod after retries: %w", err)
 	}
 	return result, nil
 }
@@ -129,9 +142,18 @@ func DeletePod(podName string) error {
 	ctx := context.Background()
 
 	// Delete the pod
-	err := podsClient.Delete(ctx, podName, metav1.DeleteOptions{})
+	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		// Define the errors that you want to retry on
+		return true // Retry on any error; you can customize this logic
+	}, func() error {
+		err := podsClient.Delete(ctx, podName, metav1.DeleteOptions{})
+		if err != nil {
+			log.Printf("Failed to delete pod: %v. Retrying...", err)
+		}
+		return err
+	})
 	if err != nil {
-		return fmt.Errorf("failed to delete pod: %w", err)
+		return fmt.Errorf("failed to delete pod after retries: %w", err)
 	}
 	return nil
 }
@@ -146,17 +168,29 @@ func DeletePod(podName string) error {
 //   - A boolean value indicating whether the specified Pod exists or not.
 //   - An error if there were any issues encountered during the existence check process.
 func PodExists(podName string) (bool, error) {
-	_, err := podsClient.Get(context.Background(), podName, metav1.GetOptions{})
+	var result *apiv1.Pod
+	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		// Retry on any error except for "not found" errors
+		return !apierrors.IsNotFound(err)
+	}, func() error {
+		var err error
+		result, err = podsClient.Get(context.Background(), podName, metav1.GetOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			log.Printf("Failed to get pod: %v. Retrying...", err)
+		}
+		return err
+	})
+
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Pod does not exist
 			return false, nil
 		}
 		// Other error occurred
-		return false, err
+		return false, fmt.Errorf("failed to get pod after retries: %w", err)
 	}
 	// Pod exists
-	return true, nil
+	return result != nil, nil
 }
 
 // CopyFileFromPod is a function that copies a file from a specified Pod and container to the local filesystem.

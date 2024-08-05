@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
+	toolsWatch "k8s.io/client-go/tools/watch"
 )
 
 type PodWatcher struct {
@@ -74,38 +75,24 @@ func (pw *PodWatcher) WaitForPodPhase(ctx context.Context, podName string, desir
 
 // WatchPods watches all pods in the namespace and sends events to the corresponding channels.
 func (pw *PodWatcher) WatchPods(ctx context.Context) error {
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+		timeout := int64(60 * 60 * 2) // 2 hours
+		return pw.podsClient.Watch(ctx, metav1.ListOptions{TimeoutSeconds: &timeout})
+	}
+	watcher, err := toolsWatch.NewRetryWatcher("1", &cache.ListWatch{WatchFunc: watchFunc})
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
 	for {
-		watch, err := pw.podsClient.Watch(ctx, metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-
-		// Handle events from the watch, on error log the error
-		defer watch.Stop()
-		err = pw.handleWatch(ctx, watch)
-		if err != nil {
-			log.Printf("Error while watching pods: %v", err)
-		}
-
-		// If the context is done, return, else retry watching
 		select {
 		case <-ctx.Done():
+			// The context is done, so we stop the watcher and exit
 			return nil
-		default:
-			// Retry watching after short delay
-			log.Printf("Retrying watching pods")
-			time.Sleep(time.Second * 2)
-		}
-	}
-}
-
-// handleWatch processes events from the watch
-func (pw *PodWatcher) handleWatch(ctx context.Context, watch watch.Interface) error {
-	for {
-		select {
-		case event, ok := <-watch.ResultChan():
+		case event, ok := <-watcher.ResultChan():
 			if !ok {
-				return fmt.Errorf("watch channel closed unexpectedly")
+				return fmt.Errorf("Error: Watch channel is closed")
 			}
 			pod, ok := event.Object.(*apiv1.Pod)
 			if !ok {
@@ -118,8 +105,6 @@ func (pw *PodWatcher) handleWatch(ctx context.Context, watch watch.Interface) er
 				eventsChan <- pod
 			}
 			pw.mu.Unlock()
-		case <-ctx.Done():
-			return nil
 		}
 	}
 }
