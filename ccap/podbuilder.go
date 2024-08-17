@@ -52,12 +52,13 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 			},
 			Containers: []apiv1.Container{
 				{
-					Name:      cleanPodName(s.Attacker.Name),
-					Image:     s.Attacker.Image,
-					Command:   []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
-					Stdin:     true,
-					TTY:       true,
-					Resources: resourceRequirements,
+					Name:            cleanPodName(s.Attacker.Name),
+					Image:           s.Attacker.Image,
+					ImagePullPolicy: "Always",
+					Command:         []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
+					Stdin:           true,
+					TTY:             true,
+					Resources:       resourceRequirements,
 				},
 			},
 		},
@@ -95,10 +96,11 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 			RestartPolicy: "Never",
 			Containers: []apiv1.Container{
 				{
-					Name:  cleanPodName(s.Target.Name),
-					Image: s.Target.Image,
-					Stdin: true,
-					TTY:   true,
+					Name:            cleanPodName(s.Target.Name),
+					Image:           s.Target.Image,
+					ImagePullPolicy: "Always",
+					Stdin:           true,
+					TTY:             true,
 				},
 				{
 					Name:  "tcpdump",
@@ -139,11 +141,12 @@ func ProcessingPodSpec(processingPod *ProcessingPod) *apiv1.Pod {
 		Spec: apiv1.PodSpec{
 			Containers: []apiv1.Container{
 				{
-					Name:    processingPod.Name,
-					Image:   processingPod.ContainerImage,
-					Command: []string{"tail", "-f", "/dev/null"},
-					Stdin:   true,
-					TTY:     true,
+					Name:            processingPod.Name,
+					Image:           processingPod.ContainerImage,
+					ImagePullPolicy: "Always",
+					Command:         []string{"tail", "-f", "/dev/null"},
+					Stdin:           true,
+					TTY:             true,
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "node-storage-input",
