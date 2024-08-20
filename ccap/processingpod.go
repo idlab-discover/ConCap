@@ -55,7 +55,7 @@ func ReadProcessingPod(filePath string) (*ProcessingPod, error) {
 
 func (p *ProcessingPod) ProcessPcap(filePath string, scn *Scenario) error {
 	inputFileContainer := filepath.Join("/data/input", scn.Name+".pcap")
-	outputFileContainer := filepath.Join("/data/output", p.Name+".csv")
+	outputFileContainer := filepath.Join("/data/output", scn.Name+".csv")
 	outputFileDownload := filepath.Join(scn.OutputDir, p.Name+".csv")
 	outputLogFile := filepath.Join(scn.OutputDir, p.Name+".log")
 
