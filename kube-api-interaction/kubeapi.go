@@ -223,7 +223,7 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 		// Execute the rm command in the Pod to delete the file
 		_, stde, err := ExecCommandInContainer(apiv1.NamespaceDefault, podName, containerName, "rm", sourcePath)
 		if err != nil {
-			return err
+			log.Println("Error deleting file from Pod: ", err)
 		}
 		if stde != "" {
 			log.Println("Error deleting file from Pod: ", stde)
