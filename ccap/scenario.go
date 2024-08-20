@@ -336,7 +336,7 @@ func (s ScenarioDeployment) MarshalYAML() (interface{}, error) {
 // The command is built based on the network configuration in the scenario
 // Configuration options that are empty or zero are not added to the tc command
 func (n *Network) GetTCCommand() string {
-	tcCommand := ""
+	tcCommand := "tc qdisc show dev eth0" // Show the current qdisc configuration in the Kubernetes logs
 	if n.Bandwidth != "" {
 		// Calculate the burst buffer size based on the bandwidth and a burst duration of 5ms
 		bandwidthBitsPerSecond, err := ParseSize(n.Bandwidth)
@@ -345,17 +345,17 @@ func (n *Network) GetTCCommand() string {
 			return ""
 		}
 		burst := bandwidthBitsPerSecond * 0.005 / 8
-		tcCommand += fmt.Sprintf("tc qdisc add dev eth0 root handle 1: tbf rate %s burst %.f", n.Bandwidth, burst)
+		tcCommand += fmt.Sprintf(" && tc qdisc replace dev eth0 root handle 1: tbf rate %s burst %.f", n.Bandwidth, burst)
 		if n.QueueSize != "" {
 			tcCommand += fmt.Sprintf(" latency %s", n.QueueSize)
 		}
 	}
 
 	if n.needsNetem() {
-		if tcCommand != "" {
-			tcCommand += " && tc qdisc add dev eth0 parent 1:1 netem"
+		if n.Bandwidth != "" {
+			tcCommand += " && tc qdisc replace dev eth0 parent 1:1 netem"
 		} else {
-			tcCommand += "tc qdisc add dev eth0 root netem"
+			tcCommand += " && tc qdisc replace dev eth0 root netem"
 		}
 		tcCommand += n.buildNetemCommand()
 	}
@@ -373,7 +373,7 @@ func (n *Network) buildNetemCommand() string {
 	}
 	if (n.Delay != "" && n.Delay != "0ms") || (n.Jitter != "" && n.Jitter != "0ms") {
 		netemCommand += fmt.Sprintf(" delay %s", n.Delay)
-		if n.Jitter != "" {
+		if n.Jitter != "" && n.Jitter != "0ms" {
 			netemCommand += " " + n.Jitter
 		}
 		if n.Distribution != "" {

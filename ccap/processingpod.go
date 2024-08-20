@@ -149,6 +149,10 @@ func (p *ProcessingPod) AddColumnsToCSV(filepath string, headers []string, value
 		return fmt.Errorf("failed to read CSV file: %w", err)
 	}
 
+	if len(records) == 0 {
+		return fmt.Errorf("CSV file is empty")
+	}
+
 	// Close the original file to allow reopening it in write mode
 	file.Close()
 
