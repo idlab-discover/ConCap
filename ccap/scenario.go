@@ -375,9 +375,9 @@ func (n *Network) buildNetemCommand() string {
 		netemCommand += fmt.Sprintf(" delay %s", n.Delay)
 		if n.Jitter != "" && n.Jitter != "0ms" {
 			netemCommand += " " + n.Jitter
-		}
-		if n.Distribution != "" {
-			netemCommand += fmt.Sprintf(" distribution %s", n.Distribution)
+			if n.Distribution != "" {
+				netemCommand += fmt.Sprintf(" distribution %s", n.Distribution)
+			}
 		}
 	}
 	if n.Loss != "" && n.Loss != "0%" {

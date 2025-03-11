@@ -1,0 +1,3 @@
+name: rustiflow-nfstream
+containerImage: ghcr.io/idlab-discover/rustiflow:slim
+command: rustiflow -f nfstream --header --idle-timeout 120 --active-timeout 3600 --output csv --export-path $OUTPUT_FILE pcap $INPUT_FILE

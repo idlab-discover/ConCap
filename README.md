@@ -1,10 +1,8 @@
-
 # ConCap
 
 ![Demo Video](concap-demo.gif)
 
 `concap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and a target, `concap` will parse the scenario and execute it. All traffic towards the target will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `concap` framework.
-
 
 ## Features
 
@@ -51,13 +49,13 @@ go run main.go --dir ./example
 3. Execute the framework using the command above.
 4. The framework will:
 
-    1. Parse the processing and scenario files.
-    2. Create the necessary pods.
-    3. Asynchronously execute the attacks.
-    4. Capture all traffic received by the target to pcap file.
-    5. Preform flow reconstruction and feature extraction to csv file.
-    6. When labels are provided in the scenario definition, the csv file is labeled.
-    6. Download output files to your machine.
+   1. Parse the processing and scenario files.
+   2. Create the necessary pods.
+   3. Asynchronously execute the attacks.
+   4. Capture all traffic received by the target to pcap file.
+   5. Preform flow reconstruction and feature extraction to csv file.
+   6. When labels are provided in the scenario definition, the csv file is labeled.
+   7. Download output files to your machine.
 
 ## Scenario File
 
@@ -119,7 +117,7 @@ Processing pods analyze the traffic received by the target during scenario execu
 
 - Ensure output files are unique to avoid concurrency issues when multiple scenarios run concurrently. Use `$INPUT_FILE_NAME` to generate unique output file names.
 
-### Examples
+### Example
 
 ```yaml
 name: cicflowmeter
@@ -133,8 +131,4 @@ command: >
   mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE
 ```
 
-```yaml
-name: rustiflow
-containerImage: ghcr.io/matissecallewaert/rustiflow:slim
-command: "rustiflow pcap cic-flow 120 $INPUT_FILE csv $OUTPUT_FILE"
-```
+See `example/processingpods` for more configurations of popular flow exporters such as `argus`, `nfstream`, and `rustiflow`.

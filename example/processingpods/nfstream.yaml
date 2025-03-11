@@ -1,0 +1,3 @@
+name: nfstream
+containerImage: ghcr.io/idlab-discover/concap/nfstream:1.0.1
+command: python3 nfstream_script.py --offline $INPUT_FILE --output $OUTPUT_FILE
