@@ -53,11 +53,11 @@ func ReadProcessingPod(filePath string) (*ProcessingPod, error) {
 	return &pod, nil
 }
 
-func (p *ProcessingPod) ProcessPcap(filePath string, scn *Scenario) error {
-	inputFileContainer := filepath.Join("/data/input", scn.Name+".pcap")
-	outputFileContainer := filepath.Join("/data/output", scn.Name+".csv")
-	outputFileDownload := filepath.Join(scn.OutputDir, p.Name+".csv")
-	outputLogFile := filepath.Join(scn.OutputDir, p.Name+".log")
+func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, outputDir string, labels map[string]string) error {
+	inputFileContainer := filepath.Join("/data/input", scenarioName+".pcap")
+	outputFileContainer := filepath.Join("/data/output", scenarioName+".csv")
+	outputFileDownload := filepath.Join(outputDir, p.Name+".csv")
+	outputLogFile := filepath.Join(outputDir, p.Name+".log")
 
 	// Copy the pcap file to the pod
 	err := kubeapi.CopyFileToPod(p.Name, p.Name, filePath, inputFileContainer)
@@ -68,7 +68,7 @@ func (p *ProcessingPod) ProcessPcap(filePath string, scn *Scenario) error {
 	// Execute the processing command in the processing pod
 	envVars := make(map[string]string)
 	envVars["INPUT_FILE"] = inputFileContainer
-	envVars["INPUT_FILE_NAME"] = scn.Name
+	envVars["INPUT_FILE_NAME"] = scenarioName
 	envVars["OUTPUT_FILE"] = outputFileContainer
 	log.Println("Analyzing traffic using pod: ", p.Name)
 	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(apiv1.NamespaceDefault, p.Name, p.Name, p.Command, envVars)
@@ -93,10 +93,10 @@ func (p *ProcessingPod) ProcessPcap(filePath string, scn *Scenario) error {
 
 	// Add labels to the output file
 	// Extract the headers and values from the scenario file
-	keys := make([]string, 0, len(scn.Labels))
-	values := make([]string, 0, len(scn.Labels))
+	keys := make([]string, 0, len(labels))
+	values := make([]string, 0, len(labels))
 
-	for key, value := range scn.Labels {
+	for key, value := range labels {
 		keys = append(keys, key)
 		values = append(values, value)
 	}
