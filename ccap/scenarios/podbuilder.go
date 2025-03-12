@@ -1,49 +1,46 @@
 package ccap
 
 import (
-	"math/rand"
+	"fmt"
 
-	scenarios "github.com/idlab-discover/concap/ccap/scenarios"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *Scenario) AttackPod() *apiv1.Pod {
+// BuildAttackerPod creates a pod definition for an attacker
+func BuildAttackerPod(name string, attacker Attacker, scenarioName string, network Network) *apiv1.Pod {
 	resourceRequirements := apiv1.ResourceRequirements{
 		Requests: apiv1.ResourceList{
-			apiv1.ResourceCPU:    resource.MustParse(s.Attacker.CPURequest),
-			apiv1.ResourceMemory: resource.MustParse(s.Attacker.MemRequest),
+			apiv1.ResourceCPU:    resource.MustParse(attacker.CPURequest),
+			apiv1.ResourceMemory: resource.MustParse(attacker.MemRequest),
 		},
 	}
 	// Add CPU and Memory limits if they are provided
-	if s.Attacker.CPULimit != "" || s.Attacker.MemLimit != "" {
+	if attacker.CPULimit != "" || attacker.MemLimit != "" {
 		resourceRequirements.Limits = apiv1.ResourceList{}
-		if s.Attacker.CPULimit != "" {
-			resourceRequirements.Limits[apiv1.ResourceCPU] = resource.MustParse(s.Attacker.CPULimit)
+		if attacker.CPULimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceCPU] = resource.MustParse(attacker.CPULimit)
 		}
-		if s.Attacker.MemLimit != "" {
-			resourceRequirements.Limits[apiv1.ResourceMemory] = resource.MustParse(s.Attacker.MemLimit)
+		if attacker.MemLimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceMemory] = resource.MustParse(attacker.MemLimit)
 		}
 	}
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cleanPodName(s.Name + "-A"),
+			Name:      CleanPodName(scenarioName + "-A"),
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"concap":   "attacker-pod",
-				"scenario": s.Name,
+				"scenario": scenarioName,
 			},
 		},
 		Spec: apiv1.PodSpec{
-			// ImagePullSecrets: []apiv1.LocalObjectReference{
-			// 	{Name: "idlab-gitlab"},
-			// },
 			InitContainers: []apiv1.Container{
 				{
 					Name:    "init-tc",
 					Image:   "ghcr.io/idlab-discover/concap/iproute2:1.0.0",
-					Command: []string{"sh", "-c", s.Network.GetTCCommand()},
+					Command: []string{"sh", "-c", network.GetTCCommand()},
 					SecurityContext: &apiv1.SecurityContext{
 						Capabilities: &apiv1.Capabilities{
 							Add: []apiv1.Capability{"NET_ADMIN"},
@@ -53,8 +50,8 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 			},
 			Containers: []apiv1.Container{
 				{
-					Name:            cleanPodName(s.Attacker.Name),
-					Image:           s.Attacker.Image,
+					Name:            CleanPodName(attacker.Name),
+					Image:           attacker.Image,
 					ImagePullPolicy: "Always",
 					Command:         []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
 					Stdin:           true,
@@ -66,39 +63,39 @@ func (s *Scenario) AttackPod() *apiv1.Pod {
 	}
 }
 
-func (s *Scenario) TargetPod() *apiv1.Pod {
+// BuildTargetPod creates a pod definition for a target
+func BuildTargetPod(name string, target Target, scenarioName string, network Network) *apiv1.Pod {
 	resourceRequirements := apiv1.ResourceRequirements{
 		Requests: apiv1.ResourceList{
-			apiv1.ResourceCPU:    resource.MustParse(s.Target.CPURequest),
-			apiv1.ResourceMemory: resource.MustParse(s.Target.MemRequest),
+			apiv1.ResourceCPU:    resource.MustParse(target.CPURequest),
+			apiv1.ResourceMemory: resource.MustParse(target.MemRequest),
 		},
 	}
 	// Add CPU and Memory limits if they are provided
-	if s.Target.CPULimit != "" || s.Target.MemLimit != "" {
+	if target.CPULimit != "" || target.MemLimit != "" {
 		resourceRequirements.Limits = apiv1.ResourceList{}
-		if s.Target.CPULimit != "" {
-			resourceRequirements.Limits[apiv1.ResourceCPU] = resource.MustParse(s.Target.CPULimit)
+		if target.CPULimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceCPU] = resource.MustParse(target.CPULimit)
 		}
-		if s.Target.MemLimit != "" {
-			resourceRequirements.Limits[apiv1.ResourceMemory] = resource.MustParse(s.Target.MemLimit)
+		if target.MemLimit != "" {
+			resourceRequirements.Limits[apiv1.ResourceMemory] = resource.MustParse(target.MemLimit)
 		}
 	}
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cleanPodName(s.Name + "-T"),
+			Name:      CleanPodName(scenarioName + "-T-" + target.Name),
 			Namespace: apiv1.NamespaceDefault,
 			Labels: map[string]string{
 				"concap":   "target-pod",
-				"scenario": s.Name,
+				"scenario": scenarioName,
 			},
 		},
-
 		Spec: apiv1.PodSpec{
 			RestartPolicy: "Never",
 			Containers: []apiv1.Container{
 				{
-					Name:            cleanPodName(s.Target.Name),
-					Image:           s.Target.Image,
+					Name:            CleanPodName(target.Name),
+					Image:           target.Image,
 					ImagePullPolicy: "Always",
 					Stdin:           true,
 					TTY:             true,
@@ -117,7 +114,6 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 					Resources: resourceRequirements,
 				},
 			},
-
 			Volumes: []apiv1.Volume{
 				{
 					Name: "node-storage",
@@ -130,7 +126,34 @@ func (s *Scenario) TargetPod() *apiv1.Pod {
 	}
 }
 
-func ProcessingPodSpec(processingPod *scenarios.ProcessingPod) *apiv1.Pod {
+// BuildTargetPodFromConfig creates a pod definition for a target from a TargetConfig
+func BuildTargetPodFromConfig(targetConfig TargetConfig, scenarioName string, index int) *apiv1.Pod {
+	// Convert TargetConfig to Target for reuse
+	target := Target{
+		Name:       targetConfig.Name,
+		Image:      targetConfig.Image,
+		Filter:     targetConfig.Filter,
+		CPURequest: targetConfig.CPURequest,
+		CPULimit:   targetConfig.CPULimit,
+		MemRequest: targetConfig.MemRequest,
+		MemLimit:   targetConfig.MemLimit,
+	}
+
+	// Use the target's network configuration if available, otherwise use an empty one
+	network := targetConfig.Network
+
+	// Create a unique suffix for multi-target scenarios
+	suffix := fmt.Sprintf("-%d", index)
+
+	pod := BuildTargetPod(target.Name+suffix, target, scenarioName, network)
+
+	// Update the pod name to include the index for multi-target scenarios
+	pod.ObjectMeta.Name = CleanPodName(scenarioName + "-T" + suffix)
+
+	return pod
+}
+
+func ProcessingPodSpec(processingPod *ProcessingPod) *apiv1.Pod {
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      processingPod.Name,
@@ -182,14 +205,4 @@ func ProcessingPodSpec(processingPod *scenarios.ProcessingPod) *apiv1.Pod {
 			},
 		},
 	}
-}
-
-// RandStringRunes is a small helper function to create random n-length strings from the smallcap letterRunes
-func RandStringRunes(n int) string {
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
 }
