@@ -161,6 +161,11 @@ labels:  # Global labels, merged with target-specific labels
 
 Note: The global `network` and `labels` fields are used during scenario parsing to set defaults and merge with target-specific configurations.
 
+In a multi-target scenario, the following environment variables are available in the attack command:
+- `$ATTACKER_IP`: IP address of the attacker pod
+- `$TARGET_IPS`: Comma-separated list of all target IP addresses
+- `$TARGET_IP_0`, `$TARGET_IP_1`, etc.: IP addresses of individual target pods (zero-based indexing, where `$TARGET_IP_0` is the first target)
+
 ### Deployment Information
 
 When a scenario is executed, the deployment information is captured and included in the output YAML file. For multi-target scenarios, this includes the IP addresses of the attacker and all target pods:
@@ -174,11 +179,6 @@ deployment:
 ```
 
 This information is useful for post-processing and analysis of the captured traffic.
-
-In a multi-target scenario, the following environment variables are available in the attack command:
-- `$ATTACKER_IP`: IP address of the attacker pod
-- `$TARGET_IPS`: Comma-separated list of all target IP addresses
-- `$TARGET_IP_0`, `$TARGET_IP_1`, etc.: IP addresses of individual target pods (zero-based indexing, where `$TARGET_IP_0` is the first target)
 
 ### Target-Specific Network Configuration
 
