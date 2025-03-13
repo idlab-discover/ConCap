@@ -22,9 +22,9 @@ type MultiTargetScenario struct {
 	Attacker     Attacker       `yaml:"attacker"`
 	Targets      []TargetConfig `yaml:"targets"`
 	// Global network configuration, used as default for all targets
-	Network Network `yaml:"network"`
+	Network Network `yaml:"network,omitempty"`
 	// Global labels, applied to all targets
-	Labels     map[string]string     `yaml:"labels"`
+	Labels     map[string]string     `yaml:"labels,omitempty"`
 	Deployment MultiTargetDeployment `yaml:"deployment"`
 }
 
@@ -56,7 +56,7 @@ func (s MultiTargetDeployment) MarshalYAML() (interface{}, error) {
 
 	// Add each target with its name as key and IP as value
 	for i, target := range s.TargetPodSpecs {
-		key := fmt.Sprintf("target_%d", i+1)
+		key := fmt.Sprintf("target_%d", i)
 		result[key] = target.PodIP
 	}
 
@@ -134,6 +134,7 @@ func (s *MultiTargetScenario) FromYAML(filePath string) error {
 		// Merge global labels with target-specific labels
 		// Target-specific labels take precedence over global labels
 		s.Targets[i].Labels = MergeLabels(s.Labels, s.Targets[i].Labels)
+		s.Labels = nil // Clear so it is not written to the output YAML file
 	}
 
 	// Default resource requests for attacker
@@ -153,6 +154,7 @@ func (s *MultiTargetScenario) FromYAML(filePath string) error {
 	// Merge the global network configuration with the attacker-specific one
 	// Attacker-specific configuration takes precedence over global configuration
 	s.Attacker.Network = MergeNetworks(s.Network, s.Attacker.Network)
+	s.Network = Network{} // Clear so it is not written to the output YAML file
 
 	return nil
 }
@@ -396,7 +398,7 @@ func (s *MultiTargetScenario) ProcessResults(outputDir string, processingPods []
 				// Add target name as a label
 				labels["target"] = targetName
 
-				err := pod.ProcessPcap(filepath.Join(targetDir, "dump.pcap"), scenarioName, targetDir, labels)
+				err := pod.ProcessPcap(filepath.Join(targetDir, "dump.pcap"), scenarioName, targetName, targetDir, labels)
 				if err != nil {
 					log.Printf("error analysing the pcap for target %s at processing pod %v: %v", targetName, pod.Name, err)
 				}
@@ -453,7 +455,7 @@ func (s *MultiTargetScenario) GetShellEnvVars() map[string]string {
 
 	// Add each target IP as a separate environment variable
 	for i, targetPodSpec := range s.Deployment.TargetPodSpecs {
-		envVars[fmt.Sprintf("TARGET_IP_%d", i+1)] = targetPodSpec.PodIP
+		envVars[fmt.Sprintf("TARGET_IP_%d", i)] = targetPodSpec.PodIP
 	}
 
 	// Also add a comma-separated list of all target IPs

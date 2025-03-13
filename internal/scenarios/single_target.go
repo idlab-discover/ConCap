@@ -283,7 +283,7 @@ func (s *SingleTargetScenario) ProcessResults(outputDir string, processingPods [
 			// Add target name as a label
 			labels["target"] = s.Target.Name
 
-			err := pod.ProcessPcap(filepath.Join(outputDir, "dump.pcap"), scenarioName, outputDir, labels)
+			err := pod.ProcessPcap(filepath.Join(outputDir, "dump.pcap"), scenarioName, s.Target.Name, outputDir, labels)
 			if err != nil {
 				log.Printf("error analysing the pcap at processing pod %v: %v", pod.Name, err)
 			}

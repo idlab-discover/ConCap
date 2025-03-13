@@ -1,0 +1,44 @@
+type: multi-target
+attacker:
+  name: nmap
+  image: instrumentisto/nmap:latest
+  atkCommand: nmap $TARGET_IP_0 $TARGET_IP_1 $TARGET_IP_2 -Pn -p 70-80,443,8080 -sS
+  cpuRequest: 200m
+  memRequest: 250Mi
+targets:
+  - name: web-server-1
+    image: httpd:2.4.38
+    cpuRequest: 100m
+    memRequest: 250Mi
+    labels:
+      service: "web"
+      port: "80"
+  - name: web-server-2
+    image: httpd:2.4.38
+    cpuRequest: 100m
+    memRequest: 250Mi
+    labels:
+      service: "web"
+      port: "80"
+  - name: web-server-3
+    image: httpd:2.4.38
+    cpuRequest: 100m
+    memRequest: 250Mi
+    labels:
+      service: "web"
+      port: "80"
+network:
+  bandwidth: 100Mbit
+  queueSize: 100ms
+  limit: 10000
+  delay: 5ms
+  jitter: 0ms
+  distribution: normal
+  loss: 0%
+  corrupt: 0%
+  duplicate: 0%
+  seed: 0
+labels:
+  label: 1
+  category: "scanning"
+  subcategory: "nmap-multi-target" 

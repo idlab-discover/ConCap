@@ -53,9 +53,9 @@ func ReadProcessingPod(filePath string) (*ProcessingPod, error) {
 	return &pod, nil
 }
 
-func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, outputDir string, labels map[string]string) error {
-	inputFileContainer := filepath.Join("/data/input", scenarioName+".pcap")
-	outputFileContainer := filepath.Join("/data/output", scenarioName+".csv")
+func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, targetName string, outputDir string, labels map[string]string) error {
+	inputFileContainer := filepath.Join("/data/input", scenarioName+"-"+targetName+".pcap")
+	outputFileContainer := filepath.Join("/data/output", scenarioName+"-"+targetName+".csv")
 	outputFileDownload := filepath.Join(outputDir, p.Name+".csv")
 	outputLogFile := filepath.Join(outputDir, p.Name+".log")
 
@@ -68,7 +68,7 @@ func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, output
 	// Execute the processing command in the processing pod
 	envVars := make(map[string]string)
 	envVars["INPUT_FILE"] = inputFileContainer
-	envVars["INPUT_FILE_NAME"] = scenarioName
+	envVars["INPUT_FILE_NAME"] = scenarioName + "-" + targetName
 	envVars["OUTPUT_FILE"] = outputFileContainer
 	log.Println("Analyzing traffic using pod: ", p.Name)
 	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(apiv1.NamespaceDefault, p.Name, p.Name, p.Command, envVars)
