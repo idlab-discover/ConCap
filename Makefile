@@ -7,10 +7,6 @@ all: build
 build:
 	@./build.sh
 
-# Run tests
-test:
-	@./test.sh
-
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
@@ -26,7 +22,6 @@ run:
 help:
 	@echo "Available targets:"
 	@echo "  build  - Build the application"
-	@echo "  test   - Run tests"
 	@echo "  clean  - Clean build artifacts"
 	@echo "  run    - Run the application with example directory"
 	@echo "  help   - Show this help message" 
