@@ -75,6 +75,8 @@ Concap supports two types of scenarios:
 1. **Single-Target Scenario**: One attacker pod and one target pod.
 2. **Multi-Target Scenario**: One attacker pod and multiple target pods.
 
+A scenario file is a YAML file defining the attacker and target(s). The filename must be unique and no more than 58 characters.
+
 ### Single-Target Scenario
 
 A single-target scenario consists of one attacker pod and one target pod. This is the default scenario type if no type is specified. The attacker executes commands against the target, and the traffic is captured for analysis.
@@ -127,44 +129,60 @@ attacker:
   cpuRequest: 100m
   memRequest: 250Mi
 targets:
-  - name: web-server
-    image: nginx:latest
-    filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+  - name: web-server-1
+    image: httpd:2.4.38
     cpuRequest: 100m
     memRequest: 250Mi
     labels:
       service: "web"
-  - name: database
-    image: postgres:latest
-    filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+      port: "80"
+  - name: web-server-2
+    image: httpd:2.4.38
     cpuRequest: 100m
     memRequest: 250Mi
     labels:
-      service: "database"
-  - name: cache
-    image: redis:latest
-    filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+      service: "web"
+      port: "80"
+  - name: web-server-3
+    image: httpd:2.4.38
     cpuRequest: 100m
     memRequest: 250Mi
     labels:
-      service: "cache"
-network:
+      service: "web"
+      port: "80"
+network:  # Global network settings, used as defaults for all targets and attacker
   bandwidth: 100Mbit
   delay: 5ms
-labels:
+labels:  # Global labels, merged with target-specific labels
   label: 1
   category: "scanning"
   subcategory: "port-scan"
 ```
 
+Note: The global `network` and `labels` fields are used during scenario parsing to set defaults and merge with target-specific configurations.
+
+### Deployment Information
+
+When a scenario is executed, the deployment information is captured and included in the output YAML file. For multi-target scenarios, this includes the IP addresses of the attacker and all target pods:
+
+```yaml
+deployment:
+  attacker: "10.244.0.15"
+  target_0: "10.244.0.16"
+  target_1: "10.244.0.17"
+  target_2: "10.244.0.18"
+```
+
+This information is useful for post-processing and analysis of the captured traffic.
+
 In a multi-target scenario, the following environment variables are available in the attack command:
 - `$ATTACKER_IP`: IP address of the attacker pod
 - `$TARGET_IPS`: Comma-separated list of all target IP addresses
-- `$TARGET_IP_1`, `$TARGET_IP_2`, etc.: IP addresses of individual target pods
+- `$TARGET_IP_0`, `$TARGET_IP_1`, etc.: IP addresses of individual target pods (zero-based indexing, where `$TARGET_IP_0` is the first target)
 
 ### Target-Specific Network Configuration
 
-In multi-target scenarios, you can also specify target-specific network configurations:
+You can specify target-specific network configurations. The global network configuration serves as a default, and target-specific configurations override these defaults.
 
 ```yaml
 type: multi-target
@@ -192,7 +210,7 @@ network:  # Default network settings for targets without specific settings
 
 ### Target-Specific Labels
 
-In multi-target scenarios, you can also specify target-specific labels that will be merged with the scenario-level labels:
+Similarly, you can specify target-specific labels that will be merged with the scenario-level labels. Target-specific labels take precedence over global labels.
 
 ```yaml
 type: multi-target
@@ -215,47 +233,6 @@ targets:
 labels:  # These labels will be applied to all targets
   attack: "true"
   category: "mixed"
-```
-
-## Scenario File Format
-
-A scenario file is a YAML file defining the attacker and target(s). The filename must be unique and no more than 61 characters. Below is an example of a single-target scenario:
-
-```yaml
-# nmap-tcp-syn-version.yaml
-type: single-target  # Optional, defaults to single-target if not specified
-attacker:
-  name: nmap
-  image: instrumentisto/nmap:latest
-  atkCommand: nmap $TARGET_IP -p 0-80,443,8080 -sV --version-light -T3
-  atkTime: 10s # Optional: Leave empty to execute atkCommand until it finishes.
-  cpuRequest: 100m # Default value: helps K8s with scheduling
-  memRequest: 100Mi # Default value: helps K8s with scheduling
-  cpuLimit: 500m # Optional: empty for no limits
-  memLimit: 500Mi # Optional: empty for no limits
-target:
-  name: httpd
-  image: httpd:2.4.38
-  filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp" # Optional, default
-  cpuRequest: 100m # Default value: helps K8s with scheduling
-  memRequest: 100Mi # Default value: helps K8s with scheduling
-  cpuLimit: 500m # Optional: empty for no limits
-  memLimit: 500Mi # Optional: empty for no limits
-network: # Optional, uses tc to emulate a realistic network and requires kernel module sch_netem on nodes in the K8s cluster, install with modprobe sch_netem
-  bandwidth: 1gbit # kbit, mbit, gbit
-  queueSize: 100ms # us, ms, s
-  limit: 10000
-  delay: 0ms # latency is sum of delay and jitter
-  jitter: 0ms # jitter may cause reordering of packets
-  distribution: normal # uniform, normal, pareto or paretonormal
-  loss: 0%
-  corrupt: 0%
-  duplicate: 0%
-  seed: 0 # Seed used to reproduce the randomly generated loss or corruption events
-labels: # Optional, if present it will be included as extra columns in the flows CSV. Any key, value combination is allowed here.
-  label: 1
-  category: "scanning"
-  subcategory: "nmap"
 ```
 
 ## Processing Pods
@@ -321,7 +298,6 @@ concap/
 │       ├── types.go          # Common type definitions
 │       └── utils.go          # Utility functions
 ├── examples/                 # Example scenarios and configurations
-├── docs/                     # Documentation
 ├── go.mod                    # Go module file
 └── README.md                 # Project README
 ```
