@@ -2,11 +2,12 @@
 
 ![Demo Video](concap-demo.gif)
 
-`concap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and a target, `concap` will parse the scenario and execute it. All traffic towards the target will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `concap` framework.
+`concap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and target(s), `concap` will parse the scenario and execute it. All traffic towards the target(s) will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `concap` framework.
 
 ## Features
 
 - Execute cyberattack scenarios in a controlled Kubernetes environment.
+- Support for both single-target and multi-target scenarios.
 - Capture network traffic and extract flow features.
 - Fine-grained network flow labeling.
 - Automate the creation and management of attack and target pods.
@@ -20,10 +21,16 @@
 
 ## Installation
 
-Build the repository.
+Build the repository using the provided build script:
 
 ```sh
-go build
+./build.sh
+```
+
+Or use the Makefile:
+
+```sh
+make build
 ```
 
 ## Usage
@@ -31,15 +38,19 @@ go build
 ### Flags
 
 - `-d, --dir` (required): The mount path on the host.
-- `-d, --workers` (optional): The number of concurrent workers that will execute scenarios, default is `1`.
+- `-w, --workers` (optional): The number of concurrent workers that will execute scenarios, default is `1`.
 - `-s, --scenario` (optional): The scenario to run, default is `all`.
 
 ### Example Command
 
 ```sh
-go run main.go --dir ./example
-# OR (after building the repository)
 ./concap --dir ./example
+```
+
+Or use the Makefile:
+
+```sh
+make run
 ```
 
 ### Running Scenarios
@@ -52,17 +63,167 @@ go run main.go --dir ./example
    1. Parse the processing and scenario files.
    2. Create the necessary pods.
    3. Asynchronously execute the attacks.
-   4. Capture all traffic received by the target to pcap file.
-   5. Preform flow reconstruction and feature extraction to csv file.
-   6. When labels are provided in the scenario definition, the csv file is labeled.
+   4. Capture all traffic received by the target(s) to pcap file(s).
+   5. Perform flow reconstruction and feature extraction to csv file(s).
+   6. When labels are provided in the scenario definition, the csv file(s) are labeled.
    7. Download output files to your machine.
 
-## Scenario File
+## Scenario Types
 
-A scenario file is a YAML file defining the attacker and target pods. The filename must be unique and no more than 61 characters. Below is an example:
+Concap supports two types of scenarios:
+
+1. **Single-Target Scenario**: One attacker pod and one target pod.
+2. **Multi-Target Scenario**: One attacker pod and multiple target pods.
+
+### Single-Target Scenario
+
+A single-target scenario consists of one attacker pod and one target pod. This is the default scenario type if no type is specified. The attacker executes commands against the target, and the traffic is captured for analysis.
+
+Example single-target scenario file:
+
+```yaml
+type: single-target  # Optional, defaults to single-target if not specified
+name: http-flood-attack
+attacker:
+  name: http-flooder
+  image: attacker/http-flooder:latest
+  atkCommand: ./http-flood.sh $TARGET_IP 80 100
+  atkTime: 30s
+  cpuRequest: 100m
+  memRequest: 250Mi
+target:
+  name: web-server
+  image: nginx:latest
+  filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+  cpuRequest: 100m
+  memRequest: 250Mi
+network:
+  bandwidth: 10Mbit
+  delay: 20ms
+labels:
+  label: 1
+  category: "dos"
+  subcategory: "http-flood"
+```
+
+In a single-target scenario, the following environment variables are available in the attack command:
+- `$ATTACKER_IP`: IP address of the attacker pod
+- `$TARGET_IP`: IP address of the target pod
+
+### Multi-Target Scenario
+
+A multi-target scenario consists of one attacker pod and multiple target pods. This allows for more complex attack scenarios, such as distributed attacks or attacks that target multiple services.
+
+Example multi-target scenario file:
+
+```yaml
+type: multi-target  # Required for multi-target scenarios
+name: distributed-scan-attack
+attacker:
+  name: port-scanner
+  image: attacker/port-scanner:latest
+  atkCommand: ./scan.sh $TARGET_IPS
+  atkTime: 60s
+  cpuRequest: 100m
+  memRequest: 250Mi
+targets:
+  - name: web-server
+    image: nginx:latest
+    filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+    cpuRequest: 100m
+    memRequest: 250Mi
+    labels:
+      service: "web"
+  - name: database
+    image: postgres:latest
+    filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+    cpuRequest: 100m
+    memRequest: 250Mi
+    labels:
+      service: "database"
+  - name: cache
+    image: redis:latest
+    filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+    cpuRequest: 100m
+    memRequest: 250Mi
+    labels:
+      service: "cache"
+network:
+  bandwidth: 100Mbit
+  delay: 5ms
+labels:
+  label: 1
+  category: "scanning"
+  subcategory: "port-scan"
+```
+
+In a multi-target scenario, the following environment variables are available in the attack command:
+- `$ATTACKER_IP`: IP address of the attacker pod
+- `$TARGET_IPS`: Comma-separated list of all target IP addresses
+- `$TARGET_IP_1`, `$TARGET_IP_2`, etc.: IP addresses of individual target pods
+
+### Target-Specific Network Configuration
+
+In multi-target scenarios, you can also specify target-specific network configurations:
+
+```yaml
+type: multi-target
+name: mixed-network-attack
+attacker:
+  name: mixed-attacker
+  image: attacker/mixed:latest
+  atkCommand: ./attack.sh $TARGET_IPS
+  atkTime: 60s
+targets:
+  - name: fast-target
+    image: nginx:latest
+    network:
+      bandwidth: 1Gbit
+      delay: 1ms
+  - name: slow-target
+    image: nginx:latest
+    network:
+      bandwidth: 10Mbit
+      delay: 100ms
+network:  # Default network settings for targets without specific settings
+  bandwidth: 100Mbit
+  delay: 10ms
+```
+
+### Target-Specific Labels
+
+In multi-target scenarios, you can also specify target-specific labels that will be merged with the scenario-level labels:
+
+```yaml
+type: multi-target
+name: labeled-targets
+attacker:
+  name: labeled-attacker
+  image: attacker/labeled:latest
+  atkCommand: ./attack.sh $TARGET_IPS
+targets:
+  - name: web-target
+    image: nginx:latest
+    labels:
+      service: "web"
+      port: "80"
+  - name: db-target
+    image: postgres:latest
+    labels:
+      service: "database"
+      port: "5432"
+labels:  # These labels will be applied to all targets
+  attack: "true"
+  category: "mixed"
+```
+
+## Scenario File Format
+
+A scenario file is a YAML file defining the attacker and target(s). The filename must be unique and no more than 61 characters. Below is an example of a single-target scenario:
 
 ```yaml
 # nmap-tcp-syn-version.yaml
+type: single-target  # Optional, defaults to single-target if not specified
 attacker:
   name: nmap
   image: instrumentisto/nmap:latest
@@ -99,7 +260,7 @@ labels: # Optional, if present it will be included as extra columns in the flows
 
 ## Processing Pods
 
-Processing pods analyze the traffic received by the target during scenario execution. This traffic is captured by `tcpdump`. Each processing pod requires the following specifications:
+Processing pods analyze the traffic received by the target(s) during scenario execution. This traffic is captured by `tcpdump`. Each processing pod requires the following specifications:
 
 - **Name**: A unique identifier for the processing pod. Will be used as filename for output files.
 - **Container Image**: The Docker image to be used for the processing pod.
@@ -132,3 +293,35 @@ command: >
 ```
 
 See `example/processingpods` for more configurations of popular flow exporters such as `argus`, `nfstream`, and `rustiflow`.
+
+## Project Structure
+
+The project is organized as follows:
+
+```
+concap/
+├── cmd/                      # Command-line applications
+│   └── concap/               # Main application
+│       └── main.go           # Entry point
+├── internal/                 # Private application code
+│   ├── controller/           # Controller logic
+│   │   └── controller.go     # Scenario scheduling and execution
+│   ├── kubernetes/           # Kubernetes interaction
+│   │   ├── exec.go           # Pod execution
+│   │   ├── api.go            # Kubernetes API interactions
+│   │   └── watcher.go        # Pod watching
+│   └── scenarios/            # Scenario implementations
+│       ├── scenario.go       # Base scenario and interface
+│       ├── factory.go        # Scenario factory
+│       ├── multi_target.go   # Multi-target scenario
+│       ├── network.go        # Network configuration
+│       ├── podbuilder.go     # Pod building utilities
+│       ├── processingpod.go  # Processing pod logic
+│       ├── single_target.go  # Single-target scenario
+│       ├── types.go          # Common type definitions
+│       └── utils.go          # Utility functions
+├── examples/                 # Example scenarios and configurations
+├── docs/                     # Documentation
+├── go.mod                    # Go module file
+└── README.md                 # Project README
+```
