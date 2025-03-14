@@ -26,15 +26,6 @@ const (
 	DataMountPath = "/data"
 	// DataVolumeName is the name of the volume used for storing captured data
 	DataVolumeName = "node-storage"
-
-	// ProcessingInputVolumeName is the name of the volume used for input data in processing pods
-	ProcessingInputVolumeName = "node-storage-input"
-	// ProcessingOutputVolumeName is the name of the volume used for output data in processing pods
-	ProcessingOutputVolumeName = "node-storage-output"
-	// ProcessingInputMountPath is the path where input data is mounted in processing pods
-	ProcessingInputMountPath = "/data/input"
-	// ProcessingOutputMountPath is the path where output data is mounted in processing pods
-	ProcessingOutputMountPath = "/data/output"
 )
 
 // Pod label constants
