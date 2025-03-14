@@ -235,6 +235,42 @@ labels:  # These labels will be applied to all targets
   category: "mixed"
 ```
 
+### Target-Specific Filters
+
+Each target can have its own custom traffic capture filter. The filter is used by `tcpdump` to determine which packets to capture. You can use special variables in your filter strings that will be automatically replaced with the actual IP addresses during execution:
+
+```yaml
+type: multi-target
+name: custom-filter-targets
+attacker:
+  name: port-scanner
+  image: attacker/port-scanner:latest
+  atkCommand: ./scan.sh $TARGET_IPS
+targets:
+  - name: web-target
+    image: nginx:latest
+    filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+  - name: db-target
+    image: postgres:latest
+    filter: "host $TARGET_IP and (host $ATTACKER_IP or host $TARGET_IP_0)"
+```
+
+If no filter is specified for a target, the following default filter will be used:
+
+```
+((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp
+```
+
+This default filter captures all traffic between the attacker and the target, excluding ARP packets.
+
+The following variables are available in filter strings:
+
+- `$ATTACKER_IP`: IP address of the attacker pod
+- `$TARGET_IP`: IP address of the current target pod (the one where tcpdump is running)
+- `$TARGET_IP_0`, `$TARGET_IP_1`, etc.: IP addresses of specific target pods in the scenario (zero-based indexing)
+
+This allows you to create sophisticated capture filters that can include or exclude traffic between specific pods in your multi-target scenario.
+
 ## Processing Pods
 
 Processing pods analyze the traffic received by the target(s) during scenario execution. This traffic is captured by `tcpdump`. Each processing pod requires the following specifications:

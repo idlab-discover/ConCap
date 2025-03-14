@@ -439,9 +439,21 @@ func (s *MultiTargetScenario) GetTrafficFilterForTarget(targetIndex int) string 
 	}
 
 	if s.Deployment.AttackPodSpec.PodIP != "" && s.Deployment.TargetPodSpecs[targetIndex].PodIP != "" {
-		replacer := strings.NewReplacer(
+		// Create a replacer with the basic replacements
+		replacements := []string{
 			"$ATTACKER_IP", s.Deployment.AttackPodSpec.PodIP,
-			"$TARGET_IP", s.Deployment.TargetPodSpecs[targetIndex].PodIP)
+			"$TARGET_IP", s.Deployment.TargetPodSpecs[targetIndex].PodIP,
+		}
+
+		// Add replacements for $TARGET_IP_{index} for all available target pods
+		for i, targetPodSpec := range s.Deployment.TargetPodSpecs {
+			if targetPodSpec.PodIP != "" {
+				placeholder := fmt.Sprintf("$TARGET_IP_%d", i)
+				replacements = append(replacements, placeholder, targetPodSpec.PodIP)
+			}
+		}
+
+		replacer := strings.NewReplacer(replacements...)
 		return replacer.Replace(s.Targets[targetIndex].Filter)
 	}
 
