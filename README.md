@@ -2,7 +2,7 @@
 
 ![Demo Video](concap-demo.gif)
 
-`concap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and target(s), `concap` will parse the scenario and execute it. All traffic towards the target(s) will be captured and automatically extracted for flow features. The scenario is executed on a Kubernetes cluster, requiring only a `kubeconfig` in the default location, and results will be downloaded to the machine running the `concap` framework.
+`concap` is a framework designed to capture realistic cyberattacks in controlled, containerized environments for the purpose of dataset creation. By creating a scenario file containing an attacker and target(s), `concap` will parse the scenario and execute it. All traffic towards the target(s) will be captured and automatically extracted for flow features.
 
 ## Features
 
@@ -84,7 +84,7 @@ A single-target scenario consists of one attacker pod and one target pod. This i
 Example single-target scenario file:
 
 ```yaml
-type: single-target  # Optional, defaults to single-target if not specified
+type: single-target # Optional, defaults to single-target if not specified
 name: http-flood-attack
 attacker:
   name: http-flooder
@@ -109,6 +109,7 @@ labels:
 ```
 
 In a single-target scenario, the following environment variables are available in the attack command:
+
 - `$ATTACKER_IP`: IP address of the attacker pod
 - `$TARGET_IP`: IP address of the target pod
 
@@ -119,7 +120,7 @@ A multi-target scenario consists of one attacker pod and multiple target pods. T
 Example multi-target scenario file:
 
 ```yaml
-type: multi-target  # Required for multi-target scenarios
+type: multi-target # Required for multi-target scenarios
 name: distributed-scan-attack
 attacker:
   name: port-scanner
@@ -150,10 +151,10 @@ targets:
     labels:
       service: "web"
       port: "80"
-network:  # Global network settings, used as defaults for all targets and attacker
+network: # Global network settings, used as defaults for all targets and attacker
   bandwidth: 100Mbit
   delay: 5ms
-labels:  # Global labels, merged with target-specific labels
+labels: # Global labels, merged with target-specific labels
   label: 1
   category: "scanning"
   subcategory: "port-scan"
@@ -162,6 +163,7 @@ labels:  # Global labels, merged with target-specific labels
 Note: The global `network` and `labels` fields are used during scenario parsing to set defaults and merge with target-specific configurations.
 
 In a multi-target scenario, the following environment variables are available in the attack command:
+
 - `$ATTACKER_IP`: IP address of the attacker pod
 - `$TARGET_IPS`: Comma-separated list of all target IP addresses
 - `$TARGET_IP_0`, `$TARGET_IP_1`, etc.: IP addresses of individual target pods (zero-based indexing, where `$TARGET_IP_0` is the first target)
@@ -203,7 +205,7 @@ targets:
     network:
       bandwidth: 10Mbit
       delay: 100ms
-network:  # Default network settings for targets without specific settings
+network: # Default network settings for targets without specific settings
   bandwidth: 100Mbit
   delay: 10ms
 ```
@@ -230,7 +232,7 @@ targets:
     labels:
       service: "database"
       port: "5432"
-labels:  # These labels will be applied to all targets
+labels: # These labels will be applied to all targets
   attack: "true"
   category: "mixed"
 ```
@@ -314,8 +316,7 @@ The project is organized as follows:
 ```
 concap/
 ├── cmd/                      # Command-line applications
-│   └── concap/               # Main application
-│       └── main.go           # Entry point
+│   └── main.go               # Entry point
 ├── internal/                 # Private application code
 │   ├── controller/           # Controller logic
 │   │   └── controller.go     # Scenario scheduling and execution
@@ -333,7 +334,7 @@ concap/
 │       ├── single_target.go  # Single-target scenario
 │       ├── types.go          # Common type definitions
 │       └── utils.go          # Utility functions
-├── examples/                 # Example scenarios and configurations
+├── example/                  # Example directory to run concap with scenarios and processing pods
 ├── go.mod                    # Go module file
 └── README.md                 # Project README
 ```
