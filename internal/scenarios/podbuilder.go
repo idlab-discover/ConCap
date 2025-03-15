@@ -137,7 +137,7 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 	// Create a unique suffix for multi-target scenarios
 	suffix := fmt.Sprintf("-%d", index)
 	podName := CleanPodName(scenarioName + TargetPodSuffix + suffix)
-	containerName := CleanPodName(targetConfig.Name + suffix)
+	containerName := CleanPodName(targetConfig.Name)
 
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

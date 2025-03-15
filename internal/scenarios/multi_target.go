@@ -50,14 +50,15 @@ type MultiTargetDeployment struct {
 }
 
 func (s MultiTargetDeployment) MarshalYAML() (interface{}, error) {
-	result := map[string]string{
+	result := map[string]interface{}{
 		"attacker": s.AttackPodSpec.PodIP,
+		"targets":  map[string]string{},
 	}
 
 	// Add each target with its name as key and IP as value
-	for i, target := range s.TargetPodSpecs {
-		key := fmt.Sprintf("target_%d", i)
-		result[key] = target.PodIP
+	targetMap := result["Targets"].(map[string]string)
+	for _, target := range s.TargetPodSpecs {
+		targetMap[target.ContainerName] = target.PodIP
 	}
 
 	return result, nil
@@ -80,6 +81,10 @@ func (s *MultiTargetScenario) FromYAML(filePath string) error {
 	err = yaml.UnmarshalStrict(b, s)
 	if err != nil {
 		return fmt.Errorf("error unmarshaling YAML: %w", err)
+	}
+
+	if s.Attacker.Name == "" {
+		s.Attacker.Name = "Attacker"
 	}
 
 	if s.Attacker.Image == "" {
@@ -106,6 +111,10 @@ func (s *MultiTargetScenario) FromYAML(filePath string) error {
 
 	// Set default filter and resource requests for each target
 	for i := range s.Targets {
+		if s.Targets[i].Name == "" {
+			s.Targets[i].Name = fmt.Sprintf("Target-%d", i)
+		}
+
 		if s.Targets[i].Filter == "" {
 			s.Targets[i].Filter = DefaultTcpdumpFilter
 		}
@@ -206,6 +215,9 @@ func (s *MultiTargetScenario) DeployAllPods() error {
 		s.Deployment.AttackPodSpec = podspec
 	}()
 
+	// Initialize the TargetPodSpecs slice with the correct length
+	s.Deployment.TargetPodSpecs = make([]kubeapi.RunningPodSpec, len(s.Targets))
+
 	// 2. Deploy all target pods
 	for i := range s.Targets {
 		go func(index int) {
@@ -216,7 +228,7 @@ func (s *MultiTargetScenario) DeployAllPods() error {
 				errChan <- fmt.Errorf("failed to deploy target pod %s: %w", s.Targets[index].Name, err)
 				return
 			}
-			s.Deployment.TargetPodSpecs = append(s.Deployment.TargetPodSpecs, podspec)
+			s.Deployment.TargetPodSpecs[index] = podspec
 		}(i)
 	}
 
