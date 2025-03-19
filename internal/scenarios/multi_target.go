@@ -56,7 +56,7 @@ func (s MultiTargetDeployment) MarshalYAML() (interface{}, error) {
 	}
 
 	// Add each target with its name as key and IP as value
-	targetMap := result["Targets"].(map[string]string)
+	targetMap := result["targets"].(map[string]string)
 	for _, target := range s.TargetPodSpecs {
 		targetMap[target.ContainerName] = target.PodIP
 	}
