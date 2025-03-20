@@ -116,7 +116,7 @@ func (p *ProcessingPod) DeployPod() error {
 	if !exists {
 		log.Printf("Creating Pod %s\n", p.Name)
 		podSpec := ProcessingPodSpec(p)
-		_, err = kubeapi.CreateRunningPod(podSpec)
+		_, err = kubeapi.CreateReadyPod(podSpec)
 		if err != nil {
 			log.Fatalf("Error running processing pod: %v", err)
 		}

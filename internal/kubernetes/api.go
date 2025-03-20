@@ -85,7 +85,7 @@ func CreatePod(ctx context.Context, pod *apiv1.Pod) (*apiv1.Pod, error) {
 	return result, nil
 }
 
-// CreateRunningPod is a function that creates a Kubernetes Pod and waits for the Pod to enter the Running state using the PodWatcher.
+// CreateReadyPod is a function that creates a Kubernetes Pod and waits for the Pod to be ready using the PodWatcher.
 // The function returns a PodSpec containing the relevant specifications of the created Pod.
 //
 // Parameters:
@@ -94,7 +94,7 @@ func CreatePod(ctx context.Context, pod *apiv1.Pod) (*apiv1.Pod, error) {
 // Returns:
 //   - A PodSpec struct containing the specifications of the created Pod.
 //   - An error if there were any issues encountered during the Pod creation process.
-func CreateRunningPod(pod *apiv1.Pod) (RunningPodSpec, error) {
+func CreateReadyPod(pod *apiv1.Pod) (RunningPodSpec, error) {
 	result, err := CreatePod(context.Background(), pod)
 	if err != nil {
 		fmt.Println("Creation of pod failed: " + err.Error())
@@ -102,7 +102,7 @@ func CreateRunningPod(pod *apiv1.Pod) (RunningPodSpec, error) {
 	}
 
 	log.Printf("Waiting for pod %s to be running...", pod.Name)
-	result, err = podWatcher.WaitForPodRunning(context.Background(), result.Name)
+	result, err = podWatcher.WaitForPodReady(context.Background(), result.Name)
 	if err != nil {
 		fmt.Println("Waiting for pod to be running failed: " + err.Error())
 		return RunningPodSpec{}, err
