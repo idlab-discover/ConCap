@@ -150,7 +150,7 @@ func (s *SingleTargetScenario) WriteScenario(outputDir string) error {
 }
 
 // DeployAllPods deploys the attacker and target pods for the scenario in a concurrent manner.
-// It waits for all pods to be running before returning.
+// It waits for all pods to be ready before returning.
 func (s *SingleTargetScenario) DeployAllPods() error {
 	log.Println("Deploying pods for scenario: ", s.Name)
 	var wg sync.WaitGroup
@@ -163,7 +163,7 @@ func (s *SingleTargetScenario) DeployAllPods() error {
 	go func() {
 		defer wg.Done()
 		attackPod := s.AttackPod()
-		podspec, err := kubeapi.CreateRunningPod(attackPod)
+		podspec, err := kubeapi.CreateReadyPod(attackPod)
 		if err != nil {
 			errChan <- fmt.Errorf("failed to deploy attacker pod: %w", err)
 			return
@@ -175,7 +175,7 @@ func (s *SingleTargetScenario) DeployAllPods() error {
 	go func() {
 		defer wg.Done()
 		targetPod := s.TargetPod()
-		podspec, err := kubeapi.CreateRunningPod(targetPod)
+		podspec, err := kubeapi.CreateReadyPod(targetPod)
 		if err != nil {
 			errChan <- fmt.Errorf("failed to deploy target pod: %w", err)
 			return
@@ -183,10 +183,10 @@ func (s *SingleTargetScenario) DeployAllPods() error {
 		s.Deployment.TargetPodSpec = podspec
 	}()
 
-	// 3. Wait for all pods to be running
-	log.Println("Waiting for pods to be running for scenario: ", s.Name)
+	// 3. Wait for all pods to be ready
+	log.Println("Waiting for pods to be ready for scenario: ", s.Name)
 	wg.Wait()
-	log.Println("All pods are running for scenario: ", s.Name)
+	log.Println("All pods are ready for scenario: ", s.Name)
 	close(errChan)
 
 	// 4. Check for errors

@@ -35,15 +35,11 @@ func (pw *PodWatcher) Start(ctx context.Context) {
 	}()
 }
 
-// WaitForPodRunning blocks until the pod is in the running phase.
-func (pw *PodWatcher) WaitForPodRunning(ctx context.Context, podName string) (*apiv1.Pod, error) {
-	return pw.WaitForPodPhase(ctx, podName, apiv1.PodRunning)
-}
-
-// WaitForPodPhase waits until the pod reaches the desired phase.
+// WaitForPodReady blocks until the pod is in the running phase and all the containers are ready.
+//
 // First it adds the pod with a corresponding channel to the eventsChans map for PodWatcher.
 // Then it waits for updates from the PodWatcher for the desired phase to be reached.
-func (pw *PodWatcher) WaitForPodPhase(ctx context.Context, podName string, desiredPhase apiv1.PodPhase) (*apiv1.Pod, error) {
+func (pw *PodWatcher) WaitForPodReady(ctx context.Context, podName string) (*apiv1.Pod, error) {
 	pw.mu.Lock()
 	if _, exists := pw.eventsChans[podName]; exists {
 		fmt.Printf("Already watching pod %s", podName)
@@ -63,7 +59,7 @@ func (pw *PodWatcher) WaitForPodPhase(ctx context.Context, podName string, desir
 	for {
 		select {
 		case pod := <-eventsChan:
-			if pod.Status.Phase == desiredPhase {
+			if pod.Status.Phase == apiv1.PodRunning && isPodReady(pod) {
 				// Pod has reached desired phase and stop watching the pod
 				return pod, nil
 			}
@@ -71,6 +67,16 @@ func (pw *PodWatcher) WaitForPodPhase(ctx context.Context, podName string, desir
 			return nil, ctx.Err()
 		}
 	}
+}
+
+// isPodReady checks if all the containers in the pod are ready.
+func isPodReady(pod *apiv1.Pod) bool {
+	for _, container := range pod.Status.ContainerStatuses {
+		if !container.Ready {
+			return false
+		}
+	}
+	return true
 }
 
 // WatchPods watches all pods in the namespace and sends events to the corresponding channels.
