@@ -273,6 +273,50 @@ The following variables are available in filter strings:
 
 This allows you to create sophisticated capture filters that can include or exclude traffic between specific pods in your multi-target scenario.
 
+### Target-Specific Startup Probes
+
+You can optionally configure startup probes for each target container to ensure proper initialization before the attack begins. This is particularly useful for services that need (a long) time to start up or require health checks. When this is not provided the pod will be asumed ready after a successful start.
+
+```yaml
+type: multi-target
+name: health-check-targets
+attacker:
+  name: health-check-attacker
+  image: attacker/health-check:latest
+  atkCommand: ./attack.sh $TARGET_IPS
+targets:
+  - name: web-target
+    image: nginx:latest
+    startupProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 3
+  - name: api-target
+    image: api-server:latest
+    startupProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      failureThreshold: 5
+```
+
+The startup probe configuration supports all Kubernetes probe types:
+- `httpGet`: HTTP endpoint health check
+- `tcpSocket`: TCP port health check
+- `grpc`: gRPC remote procedure call health check
+- `exec`: Command execution health check
+
+Each probe can be configured with:
+- `initialDelaySeconds`: Delay before the first probe (default: 0)
+- `periodSeconds`: How often to perform the probe (default: 10)
+- `timeoutSeconds`: Timeout for the probe (default: 1)
+- `successThreshold`: Number of consecutive successes required (default: 1)
+- `failureThreshold`: Number of consecutive failures required (default: 3)
+
 ## Processing Pods
 
 Processing pods analyze the traffic received by the target(s) during scenario execution. This traffic is captured by `tcpdump`. Each processing pod requires the following specifications:
