@@ -139,6 +139,20 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 	podName := CleanPodName(scenarioName + TargetPodSuffix + suffix)
 	containerName := CleanPodName(targetConfig.Name)
 
+	// Create the target container
+	targetContainer := apiv1.Container{
+		Name:            containerName,
+		Image:           targetConfig.Image,
+		ImagePullPolicy: DefaultImagePullPolicy,
+		Stdin:           true,
+		TTY:             true,
+	}
+
+	// Add startup probe if configured
+	if targetConfig.StartupProbe != nil {
+		targetContainer.StartupProbe = targetConfig.StartupProbe
+	}
+
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
@@ -166,13 +180,7 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 				},
 			},
 			Containers: []apiv1.Container{
-				{
-					Name:            containerName,
-					Image:           targetConfig.Image,
-					ImagePullPolicy: DefaultImagePullPolicy,
-					Stdin:           true,
-					TTY:             true,
-				},
+				targetContainer,
 				{
 					Name:  "tcpdump",
 					Image: ImageTcpdump,

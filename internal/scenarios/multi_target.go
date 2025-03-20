@@ -42,6 +42,8 @@ type TargetConfig struct {
 	// Labels specific to this target, initially contains target-specific labels
 	// After YAML parsing, contains the merged labels (global + target-specific)
 	Labels map[string]string `yaml:"labels"`
+	// StartupProbe configuration for the target pod
+	StartupProbe *apiv1.Probe `yaml:"startupProbe,omitempty"`
 }
 
 type MultiTargetDeployment struct {
