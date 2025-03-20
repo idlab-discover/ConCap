@@ -172,6 +172,16 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 					ImagePullPolicy: DefaultImagePullPolicy,
 					Stdin:           true,
 					TTY:             true,
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "dev-kvm",
+							MountPath: "/dev/kvm",
+						},
+						{
+							Name:      "dev-tun",
+							MountPath: "/dev/net/tun",
+						},
+					},
 				},
 				{
 					Name:  "tcpdump",
@@ -192,6 +202,23 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 					Name: "node-storage",
 					VolumeSource: apiv1.VolumeSource{
 						EmptyDir: &apiv1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: "dev-kvm",
+					VolumeSource: apiv1.VolumeSource{
+						HostPath: &apiv1.HostPathVolumeSource{
+							Path: "/dev/kvm",
+						},
+					},
+				},
+				{
+					Name: "dev-tun",
+					VolumeSource: apiv1.VolumeSource{
+						HostPath: &apiv1.HostPathVolumeSource{
+							Path: "/dev/net/tun",
+							Type: new(apiv1.HostPathType),
+						},
 					},
 				},
 			},
