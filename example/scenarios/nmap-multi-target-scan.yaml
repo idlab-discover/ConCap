@@ -13,6 +13,12 @@ targets:
     labels:
       service: "web"
       port: "80"
+    startupProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5
   - name: web-server-2
     image: httpd:2.4.38
     cpuRequest: 100m
