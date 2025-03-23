@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -42,8 +43,10 @@ type TargetConfig struct {
 	// Labels specific to this target, initially contains target-specific labels
 	// After YAML parsing, contains the merged labels (global + target-specific)
 	Labels map[string]string `yaml:"labels"`
-	// StartupProbe configuration for the target pod
-	StartupProbe *apiv1.Probe `yaml:"startupProbe,omitempty"`
+	// RawStartupProbe configuration for the target pod
+	RawStartupProbe interface{} `yaml:"startupProbe,omitempty"`
+	// Parsed startup probe, not exposed in YAML
+	StartupProbe *apiv1.Probe `yaml:"-"`
 }
 
 type MultiTargetDeployment struct {
@@ -166,6 +169,23 @@ func (s *MultiTargetScenario) FromYAML(filePath string) error {
 	// Attacker-specific configuration takes precedence over global configuration
 	s.Attacker.Network = MergeNetworks(s.Network, s.Attacker.Network)
 	s.Network = Network{} // Clear so it is not written to the output YAML file
+
+	// Parse startup probes for each target
+	// Intermediate step since apiv1.Probe is only annotated for JSON marshalling
+	for i := range s.Targets {
+		if s.Targets[i].RawStartupProbe != nil {
+			converted := ConvertToStringKeys(s.Targets[i].RawStartupProbe)
+			probeBytes, err := json.Marshal(converted)
+			if err != nil {
+				return fmt.Errorf("error marshaling startup probe for target %s: %w", s.Targets[i].Name, err)
+			}
+			var probe apiv1.Probe
+			if err := json.Unmarshal(probeBytes, &probe); err != nil {
+				return fmt.Errorf("error parsing startup probe for target %s: %w", s.Targets[i].Name, err)
+			}
+			s.Targets[i].StartupProbe = &probe
+		}
+	}
 
 	return nil
 }

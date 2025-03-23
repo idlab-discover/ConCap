@@ -81,3 +81,19 @@ func CleanPodName(name string) string {
 	replacer := strings.NewReplacer(" ", "-", "_", "-", "/", "-", ":", "-")
 	return strings.ToLower(replacer.Replace(name))
 }
+
+func ConvertToStringKeys(i interface{}) interface{} {
+	switch x := i.(type) {
+	case map[interface{}]interface{}:
+		m2 := map[string]interface{}{}
+		for k, v := range x {
+			m2[fmt.Sprint(k)] = ConvertToStringKeys(v)
+		}
+		return m2
+	case []interface{}:
+		for i, v := range x {
+			x[i] = ConvertToStringKeys(v)
+		}
+	}
+	return i
+}
