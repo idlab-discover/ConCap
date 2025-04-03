@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -21,8 +22,8 @@ type SingleTargetScenario struct {
 	BaseScenario `yaml:",inline"`
 	Attacker     Attacker               `yaml:"attacker"`
 	Target       TargetConfig           `yaml:"target"`
-	Network      Network                `yaml:"network"`
-	Labels       map[string]string      `yaml:"labels"`
+	Network      Network                `yaml:"network,omitempty"`
+	Labels       map[string]string      `yaml:"labels,omitempty"`
 	Deployment   SingleTargetDeployment `yaml:"deployment"`
 }
 
@@ -125,6 +126,21 @@ func (s *SingleTargetScenario) FromYAML(filePath string) error {
 	// Merge global labels with target-specific labels
 	// Target-specific labels take precedence over global labels
 	s.Target.Labels = MergeLabels(s.Labels, s.Target.Labels)
+
+	// Parse startup probe for target
+	if s.Target.RawStartupProbe != nil {
+		convertedProbe := ConvertToStringKeys(s.Target.RawStartupProbe)
+		probeBytes, err := json.Marshal(convertedProbe)
+		if err != nil {
+			return fmt.Errorf("error marshaling startup probe: %w", err)
+		}
+		var startupProbe apiv1.Probe
+		err = json.Unmarshal(probeBytes, &startupProbe)
+		if err != nil {
+			return fmt.Errorf("error unmarshaling startup probe: %w", err)
+		}
+		s.Target.StartupProbe = &startupProbe
+	}
 
 	return nil
 }

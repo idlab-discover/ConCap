@@ -20,7 +20,7 @@ type Attacker struct {
 	MemLimit   string `yaml:"memLimit"`
 	// Network configuration for this attacker, initially contains attacker-specific settings
 	// After YAML parsing, contains the merged configuration (global + attacker-specific)
-	Network Network `yaml:"network"`
+	Network Network `yaml:"network,omitempty"`
 }
 
 type Network struct {

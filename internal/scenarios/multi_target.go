@@ -39,10 +39,10 @@ type TargetConfig struct {
 	MemLimit   string `yaml:"memLimit"`
 	// Network configuration for this target, initially contains target-specific settings
 	// After YAML parsing, contains the merged configuration (global + target-specific)
-	Network Network `yaml:"network"`
+	Network Network `yaml:"network,omitempty"`
 	// Labels specific to this target, initially contains target-specific labels
 	// After YAML parsing, contains the merged labels (global + target-specific)
-	Labels map[string]string `yaml:"labels"`
+	Labels map[string]string `yaml:"labels,omitempty"`
 	// RawStartupProbe configuration for the target pod
 	RawStartupProbe interface{} `yaml:"startupProbe,omitempty"`
 	// Parsed startup probe, not exposed in YAML
