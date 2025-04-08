@@ -146,6 +146,7 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 		ImagePullPolicy: DefaultImagePullPolicy,
 		Stdin:           true,
 		TTY:             true,
+		Resources:       resourceRequirements,
 	}
 
 	// Add startup probe if configured
@@ -192,7 +193,6 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 							MountPath: "/data",
 						},
 					},
-					Resources: resourceRequirements,
 				},
 			},
 			Volumes: []apiv1.Volume{
