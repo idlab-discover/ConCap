@@ -101,6 +101,7 @@ target:
   memRequest: 250Mi
 network:
   bandwidth: 10Mbit
+  queueSize: 100ms
   delay: 20ms
 labels:
   label: 1
@@ -153,6 +154,7 @@ targets:
       port: "80"
 network: # Global network settings, used as defaults for all targets and attacker
   bandwidth: 100Mbit
+  queueSize: 100ms
   delay: 5ms
 labels: # Global labels, merged with target-specific labels
   label: 1
@@ -199,14 +201,17 @@ targets:
     image: nginx:latest
     network:
       bandwidth: 1Gbit
+      queueSize: 100ms
       delay: 1ms
   - name: slow-target
     image: nginx:latest
     network:
       bandwidth: 10Mbit
+      queueSize: 100ms
       delay: 100ms
 network: # Default network settings for targets without specific settings
   bandwidth: 100Mbit
+  queueSize: 100ms
   delay: 10ms
 ```
 
@@ -305,12 +310,14 @@ targets:
 ```
 
 The startup probe configuration supports all Kubernetes probe types:
+
 - `httpGet`: HTTP endpoint health check
 - `tcpSocket`: TCP port health check
 - `grpc`: gRPC remote procedure call health check
 - `exec`: Command execution health check
 
 Each probe can be configured with:
+
 - `initialDelaySeconds`: Delay before the first probe (default: 0)
 - `periodSeconds`: How often to perform the probe (default: 10)
 - `timeoutSeconds`: Timeout for the probe (default: 1)

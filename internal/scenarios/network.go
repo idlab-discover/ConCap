@@ -24,6 +24,8 @@ func (n *Network) GetTCCommand() string {
 		tcCommand += fmt.Sprintf(" && tc qdisc replace dev eth0 root handle 1: tbf rate %s burst %.f", n.Bandwidth, burst)
 		if n.QueueSize != "" {
 			tcCommand += fmt.Sprintf(" latency %s", n.QueueSize)
+		} else {
+			tcCommand += " latency 100ms" // Default latency if not specified
 		}
 	}
 
