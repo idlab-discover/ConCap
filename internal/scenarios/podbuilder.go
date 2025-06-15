@@ -75,6 +75,13 @@ func BuildAttackerPod(name string, attacker Attacker, scenarioName string) *apiv
 			resourceRequirements.Limits[apiv1.ResourceMemory] = resource.MustParse(attacker.MemLimit)
 		}
 	}
+	// Set privileged mode if requested
+	var securityContext *apiv1.SecurityContext
+	if attacker.Privileged {
+		securityContext = &apiv1.SecurityContext{
+			Privileged: func(b bool) *bool { return &b }(true),
+		}
+	}
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      CleanPodName(scenarioName + AttackerPodSuffix),
@@ -109,6 +116,7 @@ func BuildAttackerPod(name string, attacker Attacker, scenarioName string) *apiv
 					Stdin:           true,
 					TTY:             true,
 					Resources:       resourceRequirements,
+					SecurityContext: securityContext,
 				},
 			},
 		},
@@ -139,6 +147,14 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 	podName := CleanPodName(scenarioName + TargetPodSuffix + suffix)
 	containerName := CleanPodName(targetConfig.Name)
 
+	// Set privileged mode if requested
+	var securityContext *apiv1.SecurityContext
+	if targetConfig.Privileged {
+		securityContext = &apiv1.SecurityContext{
+			Privileged: func(b bool) *bool { return &b }(true),
+		}
+	}
+
 	// Create the target container
 	targetContainer := apiv1.Container{
 		Name:            containerName,
@@ -147,6 +163,7 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 		Stdin:           true,
 		TTY:             true,
 		Resources:       resourceRequirements,
+		SecurityContext: securityContext,
 	}
 
 	// Add startup probe if configured

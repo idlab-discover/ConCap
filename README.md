@@ -93,12 +93,14 @@ attacker:
   atkTime: 30s
   cpuRequest: 100m
   memRequest: 250Mi
+  privileged: true # <-- Enable privileged mode for attacker pod
 target:
   name: web-server
   image: nginx:latest
   filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
   cpuRequest: 100m
   memRequest: 250Mi
+  privileged: true # <-- Enable privileged mode for target pod
 network:
   bandwidth: 10Mbit
   queueSize: 100ms
@@ -113,6 +115,8 @@ In a single-target scenario, the following environment variables are available i
 
 - `$ATTACKER_IP`: IP address of the attacker pod
 - `$TARGET_IP`: IP address of the target pod
+
+You can enable privileged mode for the attacker or target pod by adding `privileged: true` under the respective section. This will run the container in privileged mode, which may be required for certain attack tools or services that need extended permissions.
 
 ### Multi-Target Scenario
 
@@ -130,11 +134,13 @@ attacker:
   atkTime: 60s
   cpuRequest: 100m
   memRequest: 250Mi
+  privileged: true # <-- Enable privileged mode for attacker pod
 targets:
   - name: web-server-1
     image: httpd:2.4.38
     cpuRequest: 100m
     memRequest: 250Mi
+    privileged: true # <-- Enable privileged mode for this target pod
     labels:
       service: "web"
       port: "80"
