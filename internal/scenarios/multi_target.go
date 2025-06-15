@@ -29,26 +29,6 @@ type MultiTargetScenario struct {
 	Deployment MultiTargetDeployment `yaml:"deployment"`
 }
 
-type TargetConfig struct {
-	Name       string `yaml:"name"`
-	Image      string `yaml:"image"`
-	Filter     string `yaml:"filter"`
-	CPURequest string `yaml:"cpuRequest"`
-	CPULimit   string `yaml:"cpuLimit"`
-	MemRequest string `yaml:"memRequest"`
-	MemLimit   string `yaml:"memLimit"`
-	// Network configuration for this target, initially contains target-specific settings
-	// After YAML parsing, contains the merged configuration (global + target-specific)
-	Network Network `yaml:"network,omitempty"`
-	// Labels specific to this target, initially contains target-specific labels
-	// After YAML parsing, contains the merged labels (global + target-specific)
-	Labels map[string]string `yaml:"labels,omitempty"`
-	// RawStartupProbe configuration for the target pod
-	RawStartupProbe interface{} `yaml:"startupProbe,omitempty"`
-	// Parsed startup probe, not exposed in YAML
-	StartupProbe *apiv1.Probe `yaml:"-"`
-}
-
 type MultiTargetDeployment struct {
 	AttackPodSpec  kubeapi.RunningPodSpec
 	TargetPodSpecs []kubeapi.RunningPodSpec
