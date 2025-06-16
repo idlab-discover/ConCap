@@ -34,6 +34,7 @@ type ScenarioInterface interface {
 type BaseScenario struct {
 	UUID      uuid.UUID `yaml:"uuid"`
 	Name      string    `yaml:"name"`
+	InitTime  time.Time `yaml:"initTime"`
 	StartTime time.Time `yaml:"startTime"`
 	StopTime  time.Time `yaml:"stopTime"`
 	Type      string    `yaml:"type"`

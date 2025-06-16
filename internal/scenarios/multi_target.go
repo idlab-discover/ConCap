@@ -199,6 +199,7 @@ func (s *MultiTargetScenario) WriteScenario(outputDir string) error {
 // It waits for all pods to be ready before returning.
 func (s *MultiTargetScenario) DeployAllPods() error {
 	log.Println("Deploying pods for scenario: ", s.Name)
+	s.InitTime = time.Now()
 	var wg sync.WaitGroup
 	wg.Add(1 + len(s.Targets)) // 1 for attacker + number of targets
 
