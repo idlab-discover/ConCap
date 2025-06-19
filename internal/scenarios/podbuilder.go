@@ -117,6 +117,20 @@ func BuildAttackerPod(name string, attacker Attacker, scenarioName string) *apiv
 					TTY:             true,
 					Resources:       resourceRequirements,
 					SecurityContext: securityContext,
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      "logs",
+							MountPath: "/logs",
+						},
+					},
+				},
+			},
+			Volumes: []apiv1.Volume{
+				{
+					Name: "logs",
+					VolumeSource: apiv1.VolumeSource{
+						EmptyDir: &apiv1.EmptyDirVolumeSource{},
+					},
 				},
 			},
 		},

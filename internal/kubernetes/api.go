@@ -230,7 +230,7 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 		}
 	}
 
-	log.Println("File downloaded successfully")
+	log.Printf("File %s downloaded successfully", sourcePath)
 
 	return nil
 }
@@ -259,7 +259,7 @@ func CopyFileToPod(podName string, containerName string, sourcePath string, dest
 		return err
 	}
 
-	log.Println("File uploaded successfully")
+	log.Printf("File %s uploaded successfully", sourcePath)
 
 	return nil
 }

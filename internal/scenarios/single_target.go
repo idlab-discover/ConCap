@@ -75,7 +75,7 @@ func (s *SingleTargetScenario) FromYAML(filePath string) error {
 		s.Attacker.AtkCommand = "timeout " + s.Attacker.AtkTime + " " + s.Attacker.AtkCommand
 	}
 	// Append the command to write output to default container logs
-	s.Attacker.AtkCommand += " 2>&1 | tee -a /proc/1/fd/1"
+	s.Attacker.AtkCommand += " 2>&1 | tee -a /logs/attacker.log | tee -a /proc/1/fd/1"
 
 	s.UUID = uuid.New()
 	s.Name = CleanPodName(strings.TrimSuffix(filepath.Base(fileHandler.Name()), filepath.Ext(fileHandler.Name())))
@@ -252,6 +252,7 @@ func (s *SingleTargetScenario) ExecuteAttack() error {
 func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
 	pcapPath := filepath.Join(outputDir, "dump.pcap")
 	tcpdumpLogPath := filepath.Join(outputDir, "tcpdump.log")
+	attackLogPath := filepath.Join(outputDir, "attacker.log")
 	targetPodName := s.Deployment.TargetPodSpec.PodName
 
 	// Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
@@ -277,6 +278,16 @@ func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
 	err = kubeapi.CopyFileFromPod(targetPodName, "tcpdump", "/data/tcpdump.log", tcpdumpLogPath, true)
 	if err != nil {
 		return fmt.Errorf("failed to download tcpdump log file from target pod: %v", err)
+	}
+
+	// Download the attacker's output log (attack.log)
+	attackPodName := s.Deployment.AttackPodSpec.PodName
+	attackContainer := s.Deployment.AttackPodSpec.ContainerName
+	// Copy /logs/attacker.log from the attack container to attack.log
+	err = kubeapi.CopyFileFromPod(attackPodName, attackContainer, "/logs/attacker.log", attackLogPath, true)
+	if err != nil {
+		log.Printf("warning: failed to download attack log from attacker pod: %v", err)
+		// Not fatal, continue
 	}
 
 	// Write the finished scenario to output directory

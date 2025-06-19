@@ -89,7 +89,7 @@ func (s *MultiTargetScenario) FromYAML(filePath string) error {
 		s.Attacker.AtkCommand = "timeout " + s.Attacker.AtkTime + " " + s.Attacker.AtkCommand
 	}
 	// Append the command to write output to default container logs
-	s.Attacker.AtkCommand += " 2>&1 | tee -a /proc/1/fd/1"
+	s.Attacker.AtkCommand += " 2>&1 | tee -a /logs/attacker.log | tee -a /proc/1/fd/1"
 
 	s.UUID = uuid.New()
 	s.Name = CleanPodName(strings.TrimSuffix(filepath.Base(fileHandler.Name()), filepath.Ext(fileHandler.Name())))
@@ -380,6 +380,16 @@ func (s *MultiTargetScenario) DownloadResults(outputDir string) error {
 	wg.Wait()
 	close(errChan)
 
+	// Download the attacker's output log (attack.log)
+	attackLogPath := filepath.Join(outputDir, "attacker.log")
+	attackPodName := s.Deployment.AttackPodSpec.PodName
+	attackContainer := s.Deployment.AttackPodSpec.ContainerName
+	err := kubeapi.CopyFileFromPod(attackPodName, attackContainer, "/logs/attacker.log", attackLogPath, true)
+	if err != nil {
+		log.Printf("warning: failed to download attack log from attacker pod: %v", err)
+		// Not fatal, continue
+	}
+
 	// Check for errors
 	for err := range errChan {
 		if err != nil {
@@ -388,7 +398,7 @@ func (s *MultiTargetScenario) DownloadResults(outputDir string) error {
 	}
 
 	// Write the scenario file
-	err := s.WriteScenario(outputDir)
+	err = s.WriteScenario(outputDir)
 	if err != nil {
 		return fmt.Errorf("error writing scenario file: %v", err)
 	}
