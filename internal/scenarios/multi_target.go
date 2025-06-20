@@ -128,8 +128,8 @@ func (s *MultiTargetScenario) FromYAML(filePath string) error {
 		// Merge global labels with target-specific labels
 		// Target-specific labels take precedence over global labels
 		s.Targets[i].Labels = MergeLabels(s.Labels, s.Targets[i].Labels)
-		s.Labels = nil // Clear so it is not written to the output YAML file
 	}
+	s.Labels = nil // Clear so it is not written to the output YAML file
 
 	// Default resource requests for attacker
 	if s.Attacker.CPURequest == "" {
