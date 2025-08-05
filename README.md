@@ -97,6 +97,7 @@ attacker:
 target:
   name: web-server
   image: nginx:latest
+  commandArgs: -g "daemon off;" # Optional: command arguments for target container
   filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
   cpuRequest: 100m
   memRequest: 250Mi
@@ -138,6 +139,7 @@ attacker:
 targets:
   - name: web-server-1
     image: httpd:2.4.38
+    commandArgs: -DFOREGROUND # Optional: command arguments for target container
     cpuRequest: 100m
     memRequest: 250Mi
     privileged: true # <-- Enable privileged mode for this target pod

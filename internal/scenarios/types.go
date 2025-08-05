@@ -28,13 +28,14 @@ type Attacker struct {
 }
 
 type TargetConfig struct {
-	Name       string `yaml:"name"`
-	Image      string `yaml:"image"`
-	Filter     string `yaml:"filter"`
-	CPURequest string `yaml:"cpuRequest"`
-	CPULimit   string `yaml:"cpuLimit"`
-	MemRequest string `yaml:"memRequest"`
-	MemLimit   string `yaml:"memLimit"`
+	Name        string `yaml:"name"`
+	Image       string `yaml:"image"`
+	CommandArgs string `yaml:"commandArgs"`
+	Filter      string `yaml:"filter"`
+	CPURequest  string `yaml:"cpuRequest"`
+	CPULimit    string `yaml:"cpuLimit"`
+	MemRequest  string `yaml:"memRequest"`
+	MemLimit    string `yaml:"memLimit"`
 	// Network configuration for this target, initially contains target-specific settings
 	// After YAML parsing, contains the merged configuration (global + target-specific)
 	Network Network `yaml:"network,omitempty"`

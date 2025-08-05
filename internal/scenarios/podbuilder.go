@@ -179,6 +179,9 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 		Resources:       resourceRequirements,
 		SecurityContext: securityContext,
 	}
+	if targetConfig.CommandArgs != "" {
+		targetContainer.Args = []string{targetConfig.CommandArgs}
+	}
 
 	// Add startup probe if configured
 	if targetConfig.StartupProbe != nil {
