@@ -62,8 +62,3 @@ type Network struct {
 	Duplicate    string `yaml:"duplicate"`
 	Seed         string `yaml:"seed"`
 }
-
-// ScenarioType is used to determine the type of scenario from YAML
-type ScenarioType struct {
-	Type string `yaml:"type"`
-}

@@ -305,17 +305,17 @@ func (s *SingleTargetScenario) ProcessResults(outputDir string, processingPods [
 	var wg sync.WaitGroup
 	for _, pod := range processingPods {
 		wg.Add(1)
-		go func(pod *ProcessingPod, scenarioName string, outputDir string, labels map[string]string) {
+		go func(pod *ProcessingPod, scenarioName string, outputDir string) {
 			defer wg.Done()
 
-			// Add target name as a label
+			labels := copyLabels(s.Target.Labels)
 			labels["target"] = s.Target.Name
 
 			err := pod.ProcessPcap(filepath.Join(outputDir, "dump.pcap"), scenarioName, s.Target.Name, outputDir, labels)
 			if err != nil {
 				log.Printf("error analysing the pcap at processing pod %v: %v", pod.Name, err)
 			}
-		}(pod, s.Name, outputDir, s.Target.Labels)
+		}(pod, s.Name, outputDir)
 	}
 	wg.Wait()
 	log.Println("Traffic analysis completed for scenario: ", s.Name)

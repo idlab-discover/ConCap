@@ -8,6 +8,7 @@ import (
 	"log"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	apiv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,28 +32,33 @@ var kubeConfig *rest.Config
 var kubeClient kubernetes.Clientset
 var podsClient v1.PodInterface
 var podWatcher PodWatcher
+var initOnce sync.Once
+var initErr error
 
-// The init function initializes the Kubernetes API by retrieving the kubeconfig file and creating a new clientset.
-// It uses the clientcmd package to retrieve the kubeconfig file from the default location and creates a clientset from it.
-// The clientset is then used to instantiate a Pods client and a Deployments client. It also starts the PodWatcher, receiving updates on all pod events.
-//
-// The function does not take any parameters and does not return any values. It is automatically called when the program starts.
-func init() {
+// Init initializes the Kubernetes API clients and starts the shared pod watcher.
+func Init() error {
+	initOnce.Do(func() {
+		kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
+		kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			initErr = fmt.Errorf("build kubeconfig from %s: %w", kubeconfig, err)
+			return
+		}
 
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		panic(err)
-	}
-	clientset, err := kubernetes.NewForConfig(kubeConf)
-	if err != nil {
-		panic(err)
-	}
-	kubeConfig = kubeConf
-	kubeClient = *clientset
-	podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
-	podWatcher = NewPodWatcher(podsClient)
-	podWatcher.Start(context.Background()) // Start the pod watcher
+		clientset, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			initErr = fmt.Errorf("create Kubernetes client: %w", err)
+			return
+		}
+
+		kubeConfig = kubeConf
+		kubeClient = *clientset
+		podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
+		podWatcher = NewPodWatcher(podsClient)
+		podWatcher.Start(context.Background())
+	})
+
+	return initErr
 }
 
 // CreatePod is a function that takes a pointer to a Kubernetes Pod object as input.

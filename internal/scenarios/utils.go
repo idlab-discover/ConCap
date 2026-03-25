@@ -2,8 +2,6 @@ package scenarios
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,54 +10,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// ParseScenario determines the type of scenario and calls the appropriate parser
-func ParseScenario(filePath string) (ScenarioInterface, error) {
-	// First, open the file and determine the scenario type
-	fileHandler, err := os.Open(filePath)
-	if err != nil {
-		log.Println("Failed to open file " + filePath + " : " + err.Error())
-		return nil, err
-	}
-	defer fileHandler.Close()
-
-	b, err := io.ReadAll(fileHandler)
-	if err != nil {
-		return nil, fmt.Errorf("error reading YAML: %w", err)
-	}
-
-	// Unmarshal just enough to determine the scenario type
-	var scenarioType ScenarioType
-	err = yaml.Unmarshal(b, &scenarioType)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling YAML to determine scenario type: %w", err)
-	}
-
-	// Check the scenario type and create the appropriate scenario
-	switch scenarioType.Type {
-	case MultiTargetType:
-		var scenario MultiTargetScenario
-		err = scenario.FromYAML(filePath)
-		if err != nil {
-			return nil, err
-		}
-		return &scenario, nil
-	case SingleTargetType: // Default to SingleTarget if type is missing
-		var scenario SingleTargetScenario
-		err = scenario.FromYAML(filePath)
-		if err != nil {
-			return nil, err
-		}
-		return &scenario, nil
-	default:
-		return nil, fmt.Errorf("unknown scenario type: %s", scenarioType.Type)
-	}
-}
-
 // WriteScenario marshals the scenario to YAML and writes it to disk
 func WriteScenario(scenario ScenarioInterface, outputDir string) error {
 	b, err := yaml.Marshal(scenario)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return fmt.Errorf("marshal scenario YAML: %w", err)
 	}
 	return os.WriteFile(filepath.Join(outputDir, "scenario.yaml"), b, 0644)
 }
@@ -80,6 +35,14 @@ func ParseToSeconds(s string) (string, error) {
 func CleanPodName(name string) string {
 	replacer := strings.NewReplacer(" ", "-", "_", "-", "/", "-", ":", "-")
 	return strings.ToLower(replacer.Replace(name))
+}
+
+func copyLabels(labels map[string]string) map[string]string {
+	cloned := make(map[string]string, len(labels))
+	for key, value := range labels {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func ConvertToStringKeys(i interface{}) interface{} {

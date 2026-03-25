@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/idlab-discover/concap/internal/controller"
+	kubeapi "github.com/idlab-discover/concap/internal/kubernetes"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -21,16 +22,26 @@ type FlagStore struct {
 
 var flagstore FlagStore
 
-// the init function of main will parse provided flags before running the main, gracefully stop running if parsing fails.
-func init() {
+func parseFlags() error {
 	_, err := flags.Parse(&flagstore)
 	if err != nil {
-		log.Fatalf("Error parsing flags: %v", err)
+		return fmt.Errorf("parse flags: %w", err)
 	}
+	return nil
 }
 
 func main() {
-	outputDirAbsPath, _ := filepath.Abs(flagstore.Directory)
+	if err := parseFlags(); err != nil {
+		log.Fatal(err)
+	}
+	if err := kubeapi.Init(); err != nil {
+		log.Fatalf("initialize Kubernetes client: %v", err)
+	}
+
+	outputDirAbsPath, err := filepath.Abs(flagstore.Directory)
+	if err != nil {
+		log.Fatalf("resolve output directory %s: %v", flagstore.Directory, err)
+	}
 	scenarioDir := filepath.Join(outputDirAbsPath, "scenarios")
 	processingDir := filepath.Join(outputDirAbsPath, "processingpods")
 	completedDir := filepath.Join(outputDirAbsPath, "completed")
@@ -52,13 +63,19 @@ func main() {
 	}
 
 	// Get all the processing pods in the processing directory
-	processingPodPaths := readDir(processingDir)
+	processingPodPaths, err := readDir(processingDir)
+	if err != nil {
+		log.Fatalf("read processing pod directory %s: %v", processingDir, err)
+	}
 	if len(processingPodPaths) == 0 {
 		log.Fatalf("No processing pods found in %s", processingDir)
 	}
 
 	// Get all the scenarios in the scenario directory
-	scenarioPaths := readDir(scenarioDir)
+	scenarioPaths, err := readDir(scenarioDir)
+	if err != nil {
+		log.Fatalf("read scenario directory %s: %v", scenarioDir, err)
+	}
 
 	if len(scenarioPaths) == 0 {
 		log.Fatalf("No scenarios found.")
@@ -75,7 +92,9 @@ func main() {
 		}
 		log.Println("Number of scenarios found: " + fmt.Sprint(len(scenarioPaths)))
 		// Create the flow extraction pods
-		controller.DeployFlowExtractionPods(processingPodPaths)
+		if err := controller.DeployFlowExtractionPods(processingPodPaths); err != nil {
+			log.Fatalf("Error deploying flow extraction pods: %v", err)
+		}
 
 		// Create a channel to schedule scenarios
 		scenarioChannel := make(chan controller.ScenarioScheduleRequest)
@@ -105,10 +124,10 @@ func main() {
 	}
 }
 
-func readDir(dir string) []string {
+func readDir(dir string) ([]string, error) {
 	dirEntries, err := os.ReadDir(dir)
 	if err != nil {
-		log.Fatalf("Error reading directory: %s", err.Error())
+		return nil, err
 	}
 
 	var filepaths []string
@@ -118,5 +137,5 @@ func readDir(dir string) []string {
 		}
 	}
 
-	return filepaths
+	return filepaths, nil
 }
