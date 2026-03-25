@@ -112,7 +112,7 @@ func (pw *PodWatcher) WatchPods(ctx context.Context) error {
 			return nil
 		case event, ok := <-watcher.ResultChan():
 			if !ok {
-				return fmt.Errorf("Error: Watch channel is closed")
+				return fmt.Errorf("watch channel is closed")
 			}
 			pod, ok := event.Object.(*apiv1.Pod)
 			if !ok {
