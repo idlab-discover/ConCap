@@ -182,6 +182,15 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 	if targetConfig.CommandArgs != "" {
 		targetContainer.Args = []string{targetConfig.CommandArgs}
 	}
+	if len(targetConfig.Env) > 0 {
+		targetContainer.Env = make([]apiv1.EnvVar, 0, len(targetConfig.Env))
+		for key, value := range targetConfig.Env {
+			targetContainer.Env = append(targetContainer.Env, apiv1.EnvVar{
+				Name:  key,
+				Value: value,
+			})
+		}
+	}
 
 	// Add startup probe if configured
 	if targetConfig.StartupProbe != nil {
