@@ -21,15 +21,19 @@ type FlagStore struct {
 
 var flagstore FlagStore
 
-// the init function of main will parse provided flags before running the main, gracefully stop running if parsing fails.
-func init() {
+func parseFlags() error {
 	_, err := flags.Parse(&flagstore)
 	if err != nil {
-		log.Fatalf("Error parsing flags: %v", err)
+		return fmt.Errorf("parse flags: %w", err)
 	}
+	return nil
 }
 
 func main() {
+	if err := parseFlags(); err != nil {
+		log.Fatal(err)
+	}
+
 	outputDirAbsPath, _ := filepath.Abs(flagstore.Directory)
 	scenarioDir := filepath.Join(outputDirAbsPath, "scenarios")
 	processingDir := filepath.Join(outputDirAbsPath, "processingpods")
