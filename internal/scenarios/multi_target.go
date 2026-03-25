@@ -420,7 +420,7 @@ func (s *MultiTargetScenario) ProcessResults(outputDir string, processingPods []
 			go func(pod *ProcessingPod, scenarioName string, targetName string, targetDir string, labels map[string]string) {
 				defer wg.Done()
 
-				// Add target name as a label
+				labels = copyLabels(labels)
 				labels["target"] = targetName
 
 				err := pod.ProcessPcap(filepath.Join(targetDir, "dump.pcap"), scenarioName, targetName, targetDir, labels)

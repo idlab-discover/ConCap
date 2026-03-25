@@ -82,6 +82,14 @@ func CleanPodName(name string) string {
 	return strings.ToLower(replacer.Replace(name))
 }
 
+func copyLabels(labels map[string]string) map[string]string {
+	cloned := make(map[string]string, len(labels))
+	for key, value := range labels {
+		cloned[key] = value
+	}
+	return cloned
+}
+
 func ConvertToStringKeys(i interface{}) interface{} {
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
