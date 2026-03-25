@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	kubeexec "k8s.io/client-go/util/exec"
 )
 
 func TestExecuteScenarioUsesCleanupContextForDeletion(t *testing.T) {
@@ -24,10 +26,41 @@ func TestExecuteScenarioUsesCleanupContextForDeletion(t *testing.T) {
 	}
 }
 
+func TestExecuteScenarioPreservesPartialResultsOnTimeout(t *testing.T) {
+	sentinel := kubeexec.CodeExitError{Err: errors.New("timeout"), Code: 124}
+	scenario := &fakeScenario{
+		executeAttackErr: sentinel,
+	}
+
+	err := ExecuteScenario(context.Background(), scenario, t.TempDir())
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("ExecuteScenario error = %v, want timeout error %v", err, sentinel)
+	}
+	if !scenario.partialDownloadCalled {
+		t.Fatal("DownloadPartialResults was not called for timeout")
+	}
+}
+
+func TestExecuteScenarioDoesNotPreservePartialResultsForOtherFailures(t *testing.T) {
+	sentinel := errors.New("attack failed")
+	scenario := &fakeScenario{
+		executeAttackErr: sentinel,
+	}
+
+	err := ExecuteScenario(context.Background(), scenario, t.TempDir())
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("ExecuteScenario error = %v, want %v", err, sentinel)
+	}
+	if scenario.partialDownloadCalled {
+		t.Fatal("DownloadPartialResults was called for non-timeout failure")
+	}
+}
+
 type fakeScenario struct {
-	deleteCalled     bool
-	deleteCtxErr     error
-	executeAttackErr error
+	deleteCalled          bool
+	deleteCtxErr          error
+	executeAttackErr      error
+	partialDownloadCalled bool
 }
 
 func (s *fakeScenario) FromYAML(string) error {
@@ -47,6 +80,11 @@ func (s *fakeScenario) ExecuteAttack(context.Context) error {
 }
 
 func (s *fakeScenario) DownloadResults(context.Context, string) error {
+	return nil
+}
+
+func (s *fakeScenario) DownloadPartialResults(context.Context, string) error {
+	s.partialDownloadCalled = true
 	return nil
 }
 

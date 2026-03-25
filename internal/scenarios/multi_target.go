@@ -313,19 +313,28 @@ func (s *MultiTargetScenario) ExecuteAttack(ctx context.Context) error {
 		s.Deployment.AttackPodSpec.ContainerName,
 		s.Attacker.AtkCommand,
 		envVars)
+	s.StopTime = time.Now()
 	if err != nil {
-		return fmt.Errorf("error executing command in scenario %v, error: %v", s.Name, err)
+		return fmt.Errorf("error executing command in scenario %v: %w", s.Name, err)
 	}
 	if stde != "" {
 		log.Printf("%s : %s : stdout: %s\n\t stderr: %s", s.Name, s.Attacker.Name, stdo, stde)
 	}
-	s.StopTime = time.Now()
 	log.Printf("Attack finished in scenario %v", s.Name)
 	return nil
 }
 
 // DownloadResults downloads the pcap capture and tcpdump log file from the target pod
 func (s *MultiTargetScenario) DownloadResults(ctx context.Context, outputDir string) error {
+	return s.downloadResults(ctx, outputDir, "")
+}
+
+// DownloadPartialResults downloads partial artifacts for interrupted or failed attacks.
+func (s *MultiTargetScenario) DownloadPartialResults(ctx context.Context, outputDir string) error {
+	return s.downloadResults(ctx, outputDir, "partial-")
+}
+
+func (s *MultiTargetScenario) downloadResults(ctx context.Context, outputDir, prefix string) error {
 	var wg sync.WaitGroup
 	wg.Add(len(s.Deployment.TargetPodSpecs))
 
@@ -362,14 +371,14 @@ func (s *MultiTargetScenario) DownloadResults(ctx context.Context, outputDir str
 			}
 
 			// Download pcap file
-			err = kubeapi.CopyFileFromPod(ctx, podSpec.PodName, "tcpdump", "/data/dump.pcap", filepath.Join(targetDir, "dump.pcap"), true)
+			err = kubeapi.CopyFileFromPod(ctx, podSpec.PodName, "tcpdump", "/data/dump.pcap", filepath.Join(targetDir, prefix+"dump.pcap"), true)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to download pcap file from target pod %s: %v", s.Targets[index].Name, err)
 				return
 			}
 
 			// Download tcpdump log
-			err = kubeapi.CopyFileFromPod(ctx, podSpec.PodName, "tcpdump", "/data/tcpdump.log", filepath.Join(targetDir, "tcpdump.log"), true)
+			err = kubeapi.CopyFileFromPod(ctx, podSpec.PodName, "tcpdump", "/data/tcpdump.log", filepath.Join(targetDir, prefix+"tcpdump.log"), true)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to download tcpdump log file from target pod %s: %v", s.Targets[index].Name, err)
 				return
@@ -384,7 +393,7 @@ func (s *MultiTargetScenario) DownloadResults(ctx context.Context, outputDir str
 	close(errChan)
 
 	// Download the attacker's output log (attack.log)
-	attackLogPath := filepath.Join(outputDir, "attacker.log")
+	attackLogPath := filepath.Join(outputDir, prefix+"attacker.log")
 	attackPodName := s.Deployment.AttackPodSpec.PodName
 	attackContainer := s.Deployment.AttackPodSpec.ContainerName
 	err := kubeapi.CopyFileFromPod(ctx, attackPodName, attackContainer, "/logs/attacker.log", attackLogPath, true)
@@ -401,7 +410,7 @@ func (s *MultiTargetScenario) DownloadResults(ctx context.Context, outputDir str
 	}
 
 	// Write the scenario file
-	err = s.WriteScenario(outputDir)
+	err = WriteScenarioToPath(s, filepath.Join(outputDir, prefix+"scenario.yaml"))
 	if err != nil {
 		return fmt.Errorf("error writing scenario file: %v", err)
 	}

@@ -237,22 +237,31 @@ func (s *SingleTargetScenario) ExecuteAttack(ctx context.Context) error {
 	log.Printf("Executing attack '%v' in scenario %v", s.Attacker.AtkCommand, s.Name)
 	s.StartTime = time.Now()
 	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(ctx, apiv1.NamespaceDefault, s.Deployment.AttackPodSpec.PodName, s.Deployment.AttackPodSpec.ContainerName, s.Attacker.AtkCommand, envVar)
+	s.StopTime = time.Now()
 	if err != nil {
-		return fmt.Errorf("error executing command in scenario %v, error: %v", s.Name, err)
+		return fmt.Errorf("error executing command in scenario %v: %w", s.Name, err)
 	}
 	if stde != "" {
 		log.Printf("%s : %s : stdout: %s\n\t stderr: %s", s.Name, s.Attacker.Name, stdo, stde)
 	}
-	s.StopTime = time.Now()
 	log.Printf("Attack finished in scenario %v", s.Name)
 	return nil
 }
 
 // DownloadResults downloads the pcap capture and tcpdump log file from the target pod
 func (s *SingleTargetScenario) DownloadResults(ctx context.Context, outputDir string) error {
-	pcapPath := filepath.Join(outputDir, "dump.pcap")
-	tcpdumpLogPath := filepath.Join(outputDir, "tcpdump.log")
-	attackLogPath := filepath.Join(outputDir, "attacker.log")
+	return s.downloadResults(ctx, outputDir, "")
+}
+
+// DownloadPartialResults downloads partial artifacts for interrupted or failed attacks.
+func (s *SingleTargetScenario) DownloadPartialResults(ctx context.Context, outputDir string) error {
+	return s.downloadResults(ctx, outputDir, "partial-")
+}
+
+func (s *SingleTargetScenario) downloadResults(ctx context.Context, outputDir, prefix string) error {
+	pcapPath := filepath.Join(outputDir, prefix+"dump.pcap")
+	tcpdumpLogPath := filepath.Join(outputDir, prefix+"tcpdump.log")
+	attackLogPath := filepath.Join(outputDir, prefix+"attacker.log")
 	targetPodName := s.Deployment.TargetPodSpec.PodName
 
 	// Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
@@ -292,7 +301,7 @@ func (s *SingleTargetScenario) DownloadResults(ctx context.Context, outputDir st
 	}
 
 	// Write the finished scenario to output directory
-	err = s.WriteScenario(outputDir)
+	err = WriteScenarioToPath(s, filepath.Join(outputDir, prefix+"scenario.yaml"))
 	if err != nil {
 		return fmt.Errorf("error writing scenario file: %v", err)
 	}

@@ -12,11 +12,16 @@ import (
 
 // WriteScenario marshals the scenario to YAML and writes it to disk
 func WriteScenario(scenario ScenarioInterface, outputDir string) error {
+	return WriteScenarioToPath(scenario, filepath.Join(outputDir, "scenario.yaml"))
+}
+
+// WriteScenarioToPath marshals the scenario to YAML and writes it to the provided path.
+func WriteScenarioToPath(scenario ScenarioInterface, outputPath string) error {
 	b, err := yaml.Marshal(scenario)
 	if err != nil {
 		return fmt.Errorf("marshal scenario YAML: %w", err)
 	}
-	return os.WriteFile(filepath.Join(outputDir, "scenario.yaml"), b, 0644)
+	return os.WriteFile(outputPath, b, 0644)
 }
 
 // ParseToSeconds converts a time string (e.g., "10s", "2m", "1h") to a standardized

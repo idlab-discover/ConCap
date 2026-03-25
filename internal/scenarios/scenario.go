@@ -2,11 +2,13 @@ package scenarios
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/google/uuid"
+	kubeexec "k8s.io/client-go/util/exec"
 )
 
 // ScenarioInterface defines the common interface for all scenario types
@@ -29,6 +31,10 @@ type ScenarioInterface interface {
 	Execute(ctx context.Context, outputDir string) error
 	// GetName returns the scenario name
 	GetName() string
+}
+
+type partialResultsDownloader interface {
+	DownloadPartialResults(ctx context.Context, outputDir string) error
 }
 
 // BaseScenario contains common fields and methods for all scenario types
@@ -77,7 +83,15 @@ func ExecuteScenario(ctx context.Context, s ScenarioInterface, outputDir string)
 	// 3. Execute the attack
 	err = s.ExecuteAttack(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to execute attack for scenario: %w", err)
+		attackErr := fmt.Errorf("failed to execute attack for scenario: %w", err)
+		if isAttackTimeout(err) {
+			if partialDownloader, ok := s.(partialResultsDownloader); ok {
+				if partialErr := partialDownloader.DownloadPartialResults(ctx, outputDir); partialErr != nil {
+					return errors.Join(attackErr, fmt.Errorf("failed to preserve partial results for scenario: %w", partialErr))
+				}
+			}
+		}
+		return attackErr
 	}
 
 	// 4. Download the pcap capture and updated scenario file
@@ -87,4 +101,9 @@ func ExecuteScenario(ctx context.Context, s ScenarioInterface, outputDir string)
 	}
 
 	return nil
+}
+
+func isAttackTimeout(err error) bool {
+	var exitErr kubeexec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitStatus() == 124
 }
