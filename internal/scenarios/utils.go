@@ -59,7 +59,7 @@ func ParseScenario(filePath string) (ScenarioInterface, error) {
 func WriteScenario(scenario ScenarioInterface, outputDir string) error {
 	b, err := yaml.Marshal(scenario)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return fmt.Errorf("marshal scenario YAML: %w", err)
 	}
 	return os.WriteFile(filepath.Join(outputDir, "scenario.yaml"), b, 0644)
 }
