@@ -111,14 +111,14 @@ func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, target
 func (p *ProcessingPod) DeployPod() error {
 	exists, err := kubeapi.PodExists(p.Name)
 	if err != nil {
-		log.Fatalf("Error checking if pod %s exists: %v\n", p.Name, err)
+		return fmt.Errorf("check whether pod %s exists: %w", p.Name, err)
 	}
 	if !exists {
 		log.Printf("Creating Pod %s\n", p.Name)
 		podSpec := ProcessingPodSpec(p)
 		_, err = kubeapi.CreateReadyPod(podSpec)
 		if err != nil {
-			log.Fatalf("Error running processing pod: %v", err)
+			return fmt.Errorf("create processing pod %s: %w", p.Name, err)
 		}
 		log.Printf("Processing pod %s created\n", p.Name)
 	} else {

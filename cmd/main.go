@@ -75,7 +75,9 @@ func main() {
 		}
 		log.Println("Number of scenarios found: " + fmt.Sprint(len(scenarioPaths)))
 		// Create the flow extraction pods
-		controller.DeployFlowExtractionPods(processingPodPaths)
+		if err := controller.DeployFlowExtractionPods(processingPodPaths); err != nil {
+			log.Fatalf("Error deploying flow extraction pods: %v", err)
+		}
 
 		// Create a channel to schedule scenarios
 		scenarioChannel := make(chan controller.ScenarioScheduleRequest)

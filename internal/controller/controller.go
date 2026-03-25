@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -20,8 +21,9 @@ var (
 )
 
 // DeployFlowExtractionPods creates the flow extraction pods if they do not exist yet.
-func DeployFlowExtractionPods(processingPodPaths []string) {
+func DeployFlowExtractionPods(processingPodPaths []string) error {
 	var wg sync.WaitGroup
+	errCh := make(chan error, len(processingPodPaths))
 	log.Print("Creating flow extraction pods")
 
 	for _, processingPodPath := range processingPodPaths {
@@ -30,11 +32,13 @@ func DeployFlowExtractionPods(processingPodPaths []string) {
 			defer wg.Done()
 			processingPod, err := scenarios.ReadProcessingPod(path)
 			if err != nil {
-				log.Fatalf("Error reading processing pod: %v", err)
+				errCh <- fmt.Errorf("read processing pod %s: %w", path, err)
+				return
 			}
 			err = processingPod.DeployPod()
 			if err != nil {
-				log.Fatalf("Error deploying processing pod: %v", err)
+				errCh <- fmt.Errorf("deploy processing pod %s: %w", processingPod.Name, err)
+				return
 			}
 
 			// Lock the mutex before accessing the shared slice
@@ -44,7 +48,16 @@ func DeployFlowExtractionPods(processingPodPaths []string) {
 		}(processingPodPath)
 	}
 	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+
 	log.Print("Flow extraction pods Created")
+	return nil
 }
 
 // Goroutine receiving scenario requests and scheduling them for execution
