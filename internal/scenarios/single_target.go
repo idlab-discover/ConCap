@@ -336,19 +336,33 @@ func (s *SingleTargetScenario) ProcessResults(ctx context.Context, outputDir str
 
 // DeleteAllPods deletes all pods for the scenario
 func (s *SingleTargetScenario) DeleteAllPods(ctx context.Context) error {
-	// Create a slice of pod names to delete
 	podsToDelete := []string{
 		s.Deployment.AttackPodSpec.PodName,
 		s.Deployment.TargetPodSpec.PodName,
 	}
 
-	// Delete each pod in the slice
+	errCh := make(chan error, len(podsToDelete))
+	var wg sync.WaitGroup
+
 	for _, podName := range podsToDelete {
-		if err := kubeapi.DeletePod(ctx, podName); err != nil {
-			return fmt.Errorf("failed to delete pod %s: %w", podName, err)
-		}
+		wg.Add(1)
+		go func(podName string) {
+			defer wg.Done()
+			if err := kubeapi.DeletePod(ctx, podName); err != nil {
+				errCh <- fmt.Errorf("failed to delete pod %s: %w", podName, err)
+			}
+		}(podName)
 	}
-	return nil
+
+	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
 }
 
 // GetTrafficFilter returns the tcpdump filter for the scenario with the placeholders replaced by the actual pod IPs

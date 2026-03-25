@@ -53,6 +53,8 @@ const (
 	DefaultIdleCommand = "tail -f /dev/null"
 	// RestartPolicyNever is the restart policy for target pods
 	RestartPolicyNever = "Never"
+	// PodTerminationGracePeriodSeconds is the grace period for scenario pods during cleanup.
+	PodTerminationGracePeriodSeconds int64 = 5
 	// CapabilityNetAdmin is the capability required for network configuration
 	CapabilityNetAdmin = "NET_ADMIN"
 )
@@ -92,6 +94,8 @@ func BuildAttackerPod(name string, attacker Attacker, scenarioName string) *apiv
 			},
 		},
 		Spec: apiv1.PodSpec{
+			RestartPolicy:                 RestartPolicyNever,
+			TerminationGracePeriodSeconds: func(v int64) *int64 { return &v }(PodTerminationGracePeriodSeconds),
 			InitContainers: []apiv1.Container{
 				{
 					Name:  InitContainerName,
@@ -207,7 +211,8 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 			},
 		},
 		Spec: apiv1.PodSpec{
-			RestartPolicy: RestartPolicyNever,
+			RestartPolicy:                 RestartPolicyNever,
+			TerminationGracePeriodSeconds: func(v int64) *int64 { return &v }(PodTerminationGracePeriodSeconds),
 			InitContainers: []apiv1.Container{
 				{
 					Name:  InitContainerName,
