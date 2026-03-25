@@ -38,7 +38,10 @@ func main() {
 		log.Fatalf("initialize Kubernetes client: %v", err)
 	}
 
-	outputDirAbsPath, _ := filepath.Abs(flagstore.Directory)
+	outputDirAbsPath, err := filepath.Abs(flagstore.Directory)
+	if err != nil {
+		log.Fatalf("resolve output directory %s: %v", flagstore.Directory, err)
+	}
 	scenarioDir := filepath.Join(outputDirAbsPath, "scenarios")
 	processingDir := filepath.Join(outputDirAbsPath, "processingpods")
 	completedDir := filepath.Join(outputDirAbsPath, "completed")
@@ -60,13 +63,19 @@ func main() {
 	}
 
 	// Get all the processing pods in the processing directory
-	processingPodPaths := readDir(processingDir)
+	processingPodPaths, err := readDir(processingDir)
+	if err != nil {
+		log.Fatalf("read processing pod directory %s: %v", processingDir, err)
+	}
 	if len(processingPodPaths) == 0 {
 		log.Fatalf("No processing pods found in %s", processingDir)
 	}
 
 	// Get all the scenarios in the scenario directory
-	scenarioPaths := readDir(scenarioDir)
+	scenarioPaths, err := readDir(scenarioDir)
+	if err != nil {
+		log.Fatalf("read scenario directory %s: %v", scenarioDir, err)
+	}
 
 	if len(scenarioPaths) == 0 {
 		log.Fatalf("No scenarios found.")
@@ -115,10 +124,10 @@ func main() {
 	}
 }
 
-func readDir(dir string) []string {
+func readDir(dir string) ([]string, error) {
 	dirEntries, err := os.ReadDir(dir)
 	if err != nil {
-		log.Fatalf("Error reading directory: %s", err.Error())
+		return nil, err
 	}
 
 	var filepaths []string
@@ -128,5 +137,5 @@ func readDir(dir string) []string {
 		}
 	}
 
-	return filepaths
+	return filepaths, nil
 }
