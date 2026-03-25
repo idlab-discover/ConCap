@@ -28,8 +28,7 @@ func ReadProcessingPod(filePath string) (*ProcessingPod, error) {
 
 	fileHandler, err := os.Open(filePath)
 	if err != nil {
-		log.Println("Failed to open file " + filePath + " : " + err.Error())
-		return nil, err
+		return nil, fmt.Errorf("open processing pod file %s: %w", filePath, err)
 	}
 	defer fileHandler.Close()
 
@@ -78,13 +77,9 @@ func (p *ProcessingPod) ProcessPcap(ctx context.Context, filePath string, scenar
 		return fmt.Errorf("error analyzing traffic: %w", err)
 	}
 	// Print the output of the processing command to log file
-	logFile, err := os.Create(outputLogFile)
-	if err != nil {
-		return fmt.Errorf("error creating log file traffic analysis: %w", err)
+	if err := writeAnalysisLog(outputLogFile, stdo, stde); err != nil {
+		return err
 	}
-	logFile.WriteString("stdout:\n" + stdo + "\n")
-	logFile.WriteString("stderr:\n" + stde + "\n")
-	logFile.Close()
 
 	// Download the output file from the pod
 	err = kubeapi.CopyFileFromPod(ctx, p.Name, p.Name, outputFileContainer, outputFileDownload, false)
@@ -151,11 +146,14 @@ func (p *ProcessingPod) AddColumnsToCSV(filepath string, headers []string, value
 	}
 
 	if len(records) == 0 {
-		return fmt.Errorf("CSV file is empty")
+		file.Close()
+		return fmt.Errorf("csv file is empty")
 	}
 
 	// Close the original file to allow reopening it in write mode
-	file.Close()
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close CSV file after reading: %w", err)
+	}
 
 	// if addHeader is true, add the headers to the first row
 	i := 0
@@ -172,17 +170,38 @@ func (p *ProcessingPod) AddColumnsToCSV(filepath string, headers []string, value
 	// Reopen the file in write mode
 	file, err = os.OpenFile(filepath, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("error reopening file for writing: %v", err)
+		return fmt.Errorf("reopen CSV file for writing: %w", err)
 	}
 	defer file.Close()
 
 	// Write the updated records back to the original file
 	writer := csv.NewWriter(file)
 	if err := writer.WriteAll(records); err != nil {
-		return fmt.Errorf("error writing to CSV file: %v", err)
+		return fmt.Errorf("write CSV file: %w", err)
 	}
 
 	// Close the writer to ensure all data is flushed
 	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return fmt.Errorf("flush CSV file: %w", err)
+	}
+	return nil
+}
+
+func writeAnalysisLog(outputPath, stdout, stderr string) error {
+	logFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("create traffic analysis log file: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(logFile, "stdout:\n%s\nstderr:\n%s\n", stdout, stderr); err != nil {
+		logFile.Close()
+		return fmt.Errorf("write traffic analysis log file: %w", err)
+	}
+
+	if err := logFile.Close(); err != nil {
+		return fmt.Errorf("close traffic analysis log file: %w", err)
+	}
+
 	return nil
 }

@@ -51,14 +51,14 @@ func (pw *PodWatcher) WaitForPodReady(ctx context.Context, podName string) (*api
 	pw.mu.Lock()
 	waiter, exists := pw.waiters[podName]
 	if exists {
-		fmt.Printf("Already watching pod %s", podName)
-	} else {
-		waiter = &podWaiter{
-			events: make(chan *apiv1.Pod, 1),
-			done:   make(chan struct{}),
-		}
-		pw.waiters[podName] = waiter
+		pw.mu.Unlock()
+		return nil, fmt.Errorf("pod %s is already being watched", podName)
 	}
+	waiter = &podWaiter{
+		events: make(chan *apiv1.Pod, 1),
+		done:   make(chan struct{}),
+	}
+	pw.waiters[podName] = waiter
 	pw.mu.Unlock()
 
 	defer func() {

@@ -55,8 +55,7 @@ func (s MultiTargetDeployment) MarshalYAML() (interface{}, error) {
 func (s *MultiTargetScenario) FromYAML(filePath string) error {
 	fileHandler, err := os.Open(filePath)
 	if err != nil {
-		log.Println("Failed to open file " + filePath + " : " + err.Error())
-		return err
+		return fmt.Errorf("open scenario file %s: %w", filePath, err)
 	}
 	defer fileHandler.Close()
 

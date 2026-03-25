@@ -95,6 +95,32 @@ func TestPodWatcherWaitForPodReadyRemovesWaiterOnCancel(t *testing.T) {
 	waitForWaiterRemoval(t, &pw, "pod-a")
 }
 
+func TestPodWatcherWaitForPodReadyRejectsDuplicateWatchers(t *testing.T) {
+	pw := NewPodWatcher(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := pw.WaitForPodReady(ctx, "pod-a")
+		errCh <- err
+	}()
+
+	waitForWaiter(t, &pw, "pod-a")
+
+	_, err := pw.WaitForPodReady(context.Background(), "pod-a")
+	if err == nil {
+		t.Fatal("WaitForPodReady returned nil error for duplicate watcher")
+	}
+
+	cancel()
+	select {
+	case <-errCh:
+	case <-time.After(time.Second):
+		t.Fatal("original WaitForPodReady did not return after cancellation")
+	}
+}
+
 func testPod(name string, phase apiv1.PodPhase, ready bool) *apiv1.Pod {
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
