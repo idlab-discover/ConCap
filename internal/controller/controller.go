@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -60,21 +61,22 @@ func DeployFlowExtractionPods(processingPodPaths []string) error {
 	return nil
 }
 
-// Goroutine receiving scenario requests and scheduling them for execution
-func ScheduleScenarioWorker(ch chan ScenarioScheduleRequest, wg *sync.WaitGroup) {
+// Goroutine receiving scenario requests and scheduling them for execution.
+func ScheduleScenarioWorker(ch <-chan ScenarioScheduleRequest, results chan<- error, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for sceneRequest := range ch {
-		processScenarioRequest(sceneRequest)
+		if err := processScenarioRequest(sceneRequest); err != nil {
+			results <- err
+		}
 	}
 }
 
-// processScenarioRequest processes a scenario request
-func processScenarioRequest(sceneRequest ScenarioScheduleRequest) {
+// processScenarioRequest processes a scenario request.
+func processScenarioRequest(sceneRequest ScenarioScheduleRequest) error {
 	// Read the scenario
 	scenario, err := scenarios.CreateScenario(sceneRequest.ScenarioPath)
 	if err != nil {
-		log.Printf("failed to read scenario %s: %s ", sceneRequest.ScenarioPath, err)
-		return
+		return fmt.Errorf("read scenario %s: %w", sceneRequest.ScenarioPath, err)
 	}
 
 	scenarioName := scenario.GetName()
@@ -83,25 +85,31 @@ func processScenarioRequest(sceneRequest ScenarioScheduleRequest) {
 	// Create the output directory
 	scenarioOutputFolder := filepath.Join(sceneRequest.OutputDir, scenarioName)
 	if err := os.MkdirAll(scenarioOutputFolder, 0777); err != nil {
-		log.Printf("error creating scenario output folder: %v", err)
-		return
+		return fmt.Errorf("create output directory for scenario %s: %w", scenarioName, err)
 	}
 
 	// Execute the scenario
 	err = scenario.Execute(scenarioOutputFolder)
 	if err != nil {
-		log.Printf("error executing scenario: %v", err)
-		return
+		return fmt.Errorf("execute scenario %s: %w", scenarioName, err)
 	}
 
 	// Process the results of the scenario
 	log.Printf("Analyzing traffic for scenario %v...", scenarioName)
 	err = scenario.ProcessResults(scenarioOutputFolder, ProcessingPods)
 	if err != nil {
-		log.Printf("error processing results: %v", err)
-		return
+		return fmt.Errorf("process results for scenario %s: %w", scenarioName, err)
 	}
 	log.Println("Traffic analysis completed for all targets in scenario:", scenarioName)
 
 	log.Printf("Scenario finished: %s\n", scenarioName)
+	return nil
+}
+
+// JoinErrors combines worker errors into a single error.
+func JoinErrors(errs []error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.Join(errs...)
 }

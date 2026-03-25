@@ -98,6 +98,7 @@ func main() {
 
 		// Create a channel to schedule scenarios
 		scenarioChannel := make(chan controller.ScenarioScheduleRequest)
+		scenarioResults := make(chan error, len(scenarioPaths))
 
 		// Create a waitgroup to wait for all scenarios to finish
 		wg := sync.WaitGroup{}
@@ -107,7 +108,7 @@ func main() {
 		log.Printf("Starting %d scenario workers", numWorkers)
 		for i := 0; i < numWorkers; i++ {
 			wg.Add(1)
-			go controller.ScheduleScenarioWorker(scenarioChannel, &wg)
+			go controller.ScheduleScenarioWorker(scenarioChannel, scenarioResults, &wg)
 		}
 
 		// Send the scenarios to be executed to the channel
@@ -120,6 +121,16 @@ func main() {
 
 		// Wait for all scenarios to finish
 		wg.Wait()
+		close(scenarioResults)
+
+		var errs []error
+		for err := range scenarioResults {
+			errs = append(errs, err)
+		}
+		if err := controller.JoinErrors(errs); err != nil {
+			log.Fatalf("One or more scenarios failed: %v", err)
+		}
+
 		log.Println("All scenarios have finished. ")
 	}
 }
