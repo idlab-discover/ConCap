@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -303,6 +304,7 @@ func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
 func (s *SingleTargetScenario) ProcessResults(outputDir string, processingPods []*ProcessingPod) error {
 	log.Printf("Analyzing traffic for scenario %v...", s.Name)
 	var wg sync.WaitGroup
+	errCh := make(chan error, len(processingPods))
 	for _, pod := range processingPods {
 		wg.Add(1)
 		go func(pod *ProcessingPod, scenarioName string, outputDir string) {
@@ -313,11 +315,21 @@ func (s *SingleTargetScenario) ProcessResults(outputDir string, processingPods [
 
 			err := pod.ProcessPcap(filepath.Join(outputDir, "dump.pcap"), scenarioName, s.Target.Name, outputDir, labels)
 			if err != nil {
-				log.Printf("error analysing the pcap at processing pod %v: %v", pod.Name, err)
+				errCh <- fmt.Errorf("process pcap with pod %s: %w", pod.Name, err)
 			}
 		}(pod, s.Name, outputDir)
 	}
 	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
 	log.Println("Traffic analysis completed for scenario: ", s.Name)
 	return nil
 }

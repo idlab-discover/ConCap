@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -409,6 +410,7 @@ func (s *MultiTargetScenario) DownloadResults(outputDir string) error {
 // ProcessResults processes the results of the attack
 func (s *MultiTargetScenario) ProcessResults(outputDir string, processingPods []*ProcessingPod) error {
 	var wg sync.WaitGroup
+	errCh := make(chan error, len(s.Targets)*len(processingPods))
 
 	// Process each target's results
 	for _, target := range s.Targets {
@@ -425,13 +427,23 @@ func (s *MultiTargetScenario) ProcessResults(outputDir string, processingPods []
 
 				err := pod.ProcessPcap(filepath.Join(targetDir, "dump.pcap"), scenarioName, targetName, targetDir, labels)
 				if err != nil {
-					log.Printf("error analysing the pcap for target %s at processing pod %v: %v", targetName, pod.Name, err)
+					errCh <- fmt.Errorf("process target %s with pod %s: %w", targetName, pod.Name, err)
 				}
 			}(pod, s.Name, target.Name, targetDir, target.Labels)
 		}
 	}
 
 	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
 	return nil
 }
 
