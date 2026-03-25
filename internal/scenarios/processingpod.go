@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -53,14 +54,14 @@ func ReadProcessingPod(filePath string) (*ProcessingPod, error) {
 	return &pod, nil
 }
 
-func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, targetName string, outputDir string, labels map[string]string) error {
+func (p *ProcessingPod) ProcessPcap(ctx context.Context, filePath string, scenarioName string, targetName string, outputDir string, labels map[string]string) error {
 	inputFileContainer := filepath.Join("/data/input", scenarioName+"-"+targetName+".pcap")
 	outputFileContainer := filepath.Join("/data/output", scenarioName+"-"+targetName+".csv")
 	outputFileDownload := filepath.Join(outputDir, p.Name+".csv")
 	outputLogFile := filepath.Join(outputDir, p.Name+".log")
 
 	// Copy the pcap file to the pod
-	err := kubeapi.CopyFileToPod(p.Name, p.Name, filePath, inputFileContainer)
+	err := kubeapi.CopyFileToPod(ctx, p.Name, p.Name, filePath, inputFileContainer)
 	if err != nil {
 		return fmt.Errorf("error uploading pcap file to pod: %w", err)
 	}
@@ -71,7 +72,7 @@ func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, target
 	envVars["INPUT_FILE_NAME"] = scenarioName + "-" + targetName
 	envVars["OUTPUT_FILE"] = outputFileContainer
 	log.Println("Analyzing traffic using pod: ", p.Name)
-	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(apiv1.NamespaceDefault, p.Name, p.Name, p.Command, envVars)
+	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(ctx, apiv1.NamespaceDefault, p.Name, p.Name, p.Command, envVars)
 	if err != nil {
 		log.Printf("stdout: %s\nstderr: %s", stdo, stde)
 		return fmt.Errorf("error analyzing traffic: %w", err)
@@ -86,7 +87,7 @@ func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, target
 	logFile.Close()
 
 	// Download the output file from the pod
-	err = kubeapi.CopyFileFromPod(p.Name, p.Name, outputFileContainer, outputFileDownload, false)
+	err = kubeapi.CopyFileFromPod(ctx, p.Name, p.Name, outputFileContainer, outputFileDownload, false)
 	if err != nil {
 		return fmt.Errorf("error downloading output file from pod: %w", err)
 	}
@@ -108,15 +109,15 @@ func (p *ProcessingPod) ProcessPcap(filePath string, scenarioName string, target
 	return nil
 }
 
-func (p *ProcessingPod) DeployPod() error {
-	exists, err := kubeapi.PodExists(p.Name)
+func (p *ProcessingPod) DeployPod(ctx context.Context) error {
+	exists, err := kubeapi.PodExists(ctx, p.Name)
 	if err != nil {
 		return fmt.Errorf("check whether pod %s exists: %w", p.Name, err)
 	}
 	if !exists {
 		log.Printf("Creating Pod %s\n", p.Name)
 		podSpec := ProcessingPodSpec(p)
-		_, err = kubeapi.CreateReadyPod(podSpec)
+		_, err = kubeapi.CreateReadyPod(ctx, podSpec)
 		if err != nil {
 			return fmt.Errorf("create processing pod %s: %w", p.Name, err)
 		}

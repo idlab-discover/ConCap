@@ -37,7 +37,7 @@ var initOnce sync.Once
 var initErr error
 
 // Init initializes the Kubernetes API clients and starts the shared pod watcher.
-func Init() error {
+func Init(ctx context.Context) error {
 	initOnce.Do(func() {
 		kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
 		kubeConf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -56,7 +56,7 @@ func Init() error {
 		kubeClient = *clientset
 		podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
 		podWatcher = NewPodWatcher(podsClient)
-		podWatcherErrs = podWatcher.Start(context.Background())
+		podWatcherErrs = podWatcher.Start(ctx)
 	})
 
 	return initErr
@@ -106,17 +106,15 @@ func CreatePod(ctx context.Context, pod *apiv1.Pod) (*apiv1.Pod, error) {
 // Returns:
 //   - A PodSpec struct containing the specifications of the created Pod.
 //   - An error if there were any issues encountered during the Pod creation process.
-func CreateReadyPod(pod *apiv1.Pod) (RunningPodSpec, error) {
-	result, err := CreatePod(context.Background(), pod)
+func CreateReadyPod(ctx context.Context, pod *apiv1.Pod) (RunningPodSpec, error) {
+	result, err := CreatePod(ctx, pod)
 	if err != nil {
-		fmt.Println("Creation of pod failed: " + err.Error())
 		return RunningPodSpec{}, err
 	}
 
 	log.Printf("Waiting for pod %s to be running...", pod.Name)
-	result, err = podWatcher.WaitForPodReady(context.Background(), result.Name)
+	result, err = podWatcher.WaitForPodReady(ctx, result.Name)
 	if err != nil {
-		fmt.Println("Waiting for pod to be running failed: " + err.Error())
 		return RunningPodSpec{}, err
 	}
 
@@ -150,9 +148,7 @@ func SetPodSpec(pod *apiv1.Pod) RunningPodSpec {
 //
 // Returns:
 //   - An error if there were any issues encountered during the Pod deletion process.
-func DeletePod(podName string) error {
-	ctx := context.Background()
-
+func DeletePod(ctx context.Context, podName string) error {
 	// Delete the pod
 	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
 		// Define the errors that you want to retry on
@@ -179,14 +175,14 @@ func DeletePod(podName string) error {
 // Returns:
 //   - A boolean value indicating whether the specified Pod exists or not.
 //   - An error if there were any issues encountered during the existence check process.
-func PodExists(podName string) (bool, error) {
+func PodExists(ctx context.Context, podName string) (bool, error) {
 	var result *apiv1.Pod
 	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
 		// Retry on any error except for "not found" errors
 		return !apierrors.IsNotFound(err)
 	}, func() error {
 		var err error
-		result, err = podsClient.Get(context.Background(), podName, metav1.GetOptions{})
+		result, err = podsClient.Get(ctx, podName, metav1.GetOptions{})
 		if err != nil && !apierrors.IsNotFound(err) {
 			log.Printf("Failed to get pod: %v. Retrying...", err)
 		}
@@ -215,9 +211,9 @@ func PodExists(podName string) (bool, error) {
 //
 // Returns:
 //   - An error if there were any issues encountered during the file copy process.
-func CopyFileFromPod(podName string, containerName string, sourcePath string, destPath string, keepFile bool) error {
+func CopyFileFromPod(ctx context.Context, podName string, containerName string, sourcePath string, destPath string, keepFile bool) error {
 	// Construct the kubectl cp command
-	cmd := exec.CommandContext(context.Background(), "kubectl", "cp", "--retries=10", fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, sourcePath), destPath, "-c", containerName)
+	cmd := exec.CommandContext(ctx, "kubectl", "cp", "--retries=10", fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, sourcePath), destPath, "-c", containerName)
 
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
@@ -233,7 +229,7 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 	// Delete the file from the Pod if keepFile is set to false
 	if !keepFile {
 		// Execute the rm command in the Pod to delete the file
-		_, stde, err := ExecCommandInContainer(apiv1.NamespaceDefault, podName, containerName, "rm", sourcePath)
+		_, stde, err := ExecCommandInContainer(ctx, apiv1.NamespaceDefault, podName, containerName, "rm", sourcePath)
 		if err != nil {
 			log.Println("Error deleting file from Pod: ", err)
 		}
@@ -256,9 +252,9 @@ func CopyFileFromPod(podName string, containerName string, sourcePath string, de
 //
 // Returns:
 //   - An error if there were any issues encountered during the file copy process.
-func CopyFileToPod(podName string, containerName string, sourcePath string, destPath string) error {
+func CopyFileToPod(ctx context.Context, podName string, containerName string, sourcePath string, destPath string) error {
 	// Construct the kubectl cp command
-	cmd := exec.CommandContext(context.Background(), "kubectl", "cp", "--retries=10", sourcePath, fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, destPath), "-c", containerName)
+	cmd := exec.CommandContext(ctx, "kubectl", "cp", "--retries=10", sourcePath, fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, destPath), "-c", containerName)
 
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")

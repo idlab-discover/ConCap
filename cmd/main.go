@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -34,112 +36,133 @@ func main() {
 	if err := parseFlags(); err != nil {
 		log.Fatal(err)
 	}
-	if err := kubeapi.Init(); err != nil {
-		log.Fatalf("initialize Kubernetes client: %v", err)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
+			log.Printf("Shutdown complete: %v", err)
+			os.Exit(1)
+		}
+		log.Fatal(err)
 	}
+}
+
+func run(ctx context.Context) error {
+	if err := kubeapi.Init(ctx); err != nil {
+		return fmt.Errorf("initialize Kubernetes client: %w", err)
+	}
+
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	watcherErrCh := make(chan error, 1)
 	go func() {
 		for err := range kubeapi.WatchErrors() {
-			if err != nil {
-				log.Fatalf("pod watcher failed: %v", err)
+			if err == nil {
+				continue
 			}
+			select {
+			case watcherErrCh <- fmt.Errorf("pod watcher failed: %w", err):
+			default:
+			}
+			cancel()
+			return
 		}
 	}()
 
 	outputDirAbsPath, err := filepath.Abs(flagstore.Directory)
 	if err != nil {
-		log.Fatalf("resolve output directory %s: %v", flagstore.Directory, err)
+		return fmt.Errorf("resolve output directory %s: %w", flagstore.Directory, err)
 	}
 	scenarioDir := filepath.Join(outputDirAbsPath, "scenarios")
 	processingDir := filepath.Join(outputDirAbsPath, "processingpods")
 	completedDir := filepath.Join(outputDirAbsPath, "completed")
 
-	// Setup channel to listen for interrupt signal to gracefully shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	// Wait for interrupt signal
-	go func() {
-		<-quit
-		fmt.Println("Shutdown signal received, cleaning up...")
-		// Perform cleanup operations here
-		// TODO: Add cleanup operations
-		os.Exit(0) // Exit after cleanup
-	}()
-
 	if _, err := os.Stat(scenarioDir); os.IsNotExist(err) {
-		log.Fatalf("Scenario directory does not exist: %s", scenarioDir)
+		return fmt.Errorf("scenario directory does not exist: %s", scenarioDir)
 	}
 
-	// Get all the processing pods in the processing directory
 	processingPodPaths, err := readDir(processingDir)
 	if err != nil {
-		log.Fatalf("read processing pod directory %s: %v", processingDir, err)
+		return fmt.Errorf("read processing pod directory %s: %w", processingDir, err)
 	}
 	if len(processingPodPaths) == 0 {
-		log.Fatalf("No processing pods found in %s", processingDir)
+		return fmt.Errorf("no processing pods found in %s", processingDir)
 	}
 
-	// Get all the scenarios in the scenario directory
 	scenarioPaths, err := readDir(scenarioDir)
 	if err != nil {
-		log.Fatalf("read scenario directory %s: %v", scenarioDir, err)
+		return fmt.Errorf("read scenario directory %s: %w", scenarioDir, err)
 	}
-
 	if len(scenarioPaths) == 0 {
-		log.Fatalf("No scenarios found.")
-	} else {
-		if flagstore.Scenario != "all" {
-			// Specific scenario is given as parameter
-			scenario_path := filepath.Join(scenarioDir, flagstore.Scenario)
-			log.Printf("Scenarion %s selected to be run", flagstore.Scenario)
-			_, err := os.Stat(scenario_path)
-			if err != nil {
-				log.Fatalf("Error opening specified scenario %s", scenario_path)
-			}
-			scenarioPaths = []string{scenario_path}
-		}
-		log.Println("Number of scenarios found: " + fmt.Sprint(len(scenarioPaths)))
-		// Create the flow extraction pods
-		if err := controller.DeployFlowExtractionPods(processingPodPaths); err != nil {
-			log.Fatalf("Error deploying flow extraction pods: %v", err)
-		}
-
-		// Create a channel to schedule scenarios
-		scenarioChannel := make(chan controller.ScenarioScheduleRequest)
-		scenarioResults := make(chan error, len(scenarioPaths))
-
-		// Create a waitgroup to wait for all scenarios to finish
-		wg := sync.WaitGroup{}
-
-		// Start the concurrent goroutines to schedule scenarios
-		numWorkers := min(flagstore.NumberOfWorkers, len(scenarioPaths))
-		log.Printf("Starting %d scenario workers", numWorkers)
-		for i := 0; i < numWorkers; i++ {
-			wg.Add(1)
-			go controller.ScheduleScenarioWorker(scenarioChannel, scenarioResults, &wg)
-		}
-
-		// Send the scenarios to be executed to the channel
-		for _, scenarioPath := range scenarioPaths {
-			scenarioChannel <- controller.ScenarioScheduleRequest{ScenarioPath: scenarioPath, OutputDir: completedDir}
-		}
-
-		// Close the channel to signal that all scenarios have been sent, this will cause the goroutines to exit their receive loop
-		close(scenarioChannel)
-
-		// Wait for all scenarios to finish
-		wg.Wait()
-		close(scenarioResults)
-
-		var errs []error
-		for err := range scenarioResults {
-			errs = append(errs, err)
-		}
-		if err := controller.JoinErrors(errs); err != nil {
-			log.Fatalf("One or more scenarios failed: %v", err)
-		}
-
-		log.Println("All scenarios have finished. ")
+		return fmt.Errorf("no scenarios found")
 	}
+
+	if flagstore.Scenario != "all" {
+		scenarioPath := filepath.Join(scenarioDir, flagstore.Scenario)
+		log.Printf("Scenario %s selected to be run", flagstore.Scenario)
+		if _, err := os.Stat(scenarioPath); err != nil {
+			return fmt.Errorf("open specified scenario %s: %w", scenarioPath, err)
+		}
+		scenarioPaths = []string{scenarioPath}
+	}
+
+	log.Printf("Number of scenarios found: %d", len(scenarioPaths))
+	if err := controller.DeployFlowExtractionPods(runCtx, processingPodPaths); err != nil {
+		return fmt.Errorf("deploy flow extraction pods: %w", err)
+	}
+
+	scenarioChannel := make(chan controller.ScenarioScheduleRequest)
+	scenarioResults := make(chan error, len(scenarioPaths))
+
+	var wg sync.WaitGroup
+	numWorkers := min(flagstore.NumberOfWorkers, len(scenarioPaths))
+	log.Printf("Starting %d scenario workers", numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go controller.ScheduleScenarioWorker(runCtx, scenarioChannel, scenarioResults, &wg)
+	}
+
+	sendErr := enqueueScenarios(runCtx, scenarioChannel, scenarioPaths, completedDir)
+	wg.Wait()
+	close(scenarioResults)
+
+	var errs []error
+	if sendErr != nil {
+		errs = append(errs, sendErr)
+	}
+	for err := range scenarioResults {
+		errs = append(errs, err)
+	}
+	select {
+	case err := <-watcherErrCh:
+		errs = append(errs, err)
+	default:
+	}
+	if err := controller.JoinErrors(errs); err != nil {
+		return fmt.Errorf("one or more scenarios failed: %w", err)
+	}
+
+	log.Println("All scenarios have finished.")
+	return nil
+}
+
+func enqueueScenarios(ctx context.Context, scenarioChannel chan<- controller.ScenarioScheduleRequest, scenarioPaths []string, outputDir string) error {
+	defer close(scenarioChannel)
+
+	for _, scenarioPath := range scenarioPaths {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case scenarioChannel <- controller.ScenarioScheduleRequest{
+			ScenarioPath: scenarioPath,
+			OutputDir:    outputDir,
+		}:
+		}
+	}
+
+	return nil
 }
 
 func readDir(dir string) ([]string, error) {

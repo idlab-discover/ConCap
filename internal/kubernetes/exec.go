@@ -14,6 +14,7 @@ import (
 )
 
 type ExecOptions struct {
+	Context            context.Context
 	Command            []string
 	Namespace          string
 	PodName            string
@@ -38,6 +39,10 @@ type ExecOptions struct {
 //   - err: an error object that indicates whether an error occurred while executing the command.
 func ExecWithOptions(options ExecOptions) (string, string, error) {
 	const tty = false
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	req := kubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(options.PodName).
@@ -54,7 +59,7 @@ func ExecWithOptions(options ExecOptions) (string, string, error) {
 	}, scheme.ParameterCodec)
 
 	var stdout, stderr bytes.Buffer
-	err := execute("POST", req.URL(), kubeConfig, options.Stdin, &stdout, &stderr, tty)
+	err := execute(ctx, "POST", req.URL(), kubeConfig, options.Stdin, &stdout, &stderr, tty)
 
 	if options.PreserveWhitespace {
 		return stdout.String(), stderr.String(), err
@@ -77,8 +82,9 @@ func ExecWithOptions(options ExecOptions) (string, string, error) {
 //   - stdout: A string containing the standard output of the executed command.
 //   - stderr: A string containing the standard error output of the executed command.
 //   - error: An error object indicating any errors encountered while executing the command.
-func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...string) (string, string, error) {
+func ExecCommandInContainer(ctx context.Context, nameSpace, podName, containerName string, cmd ...string) (string, string, error) {
 	return ExecWithOptions(ExecOptions{
+		Context:            ctx,
 		Command:            cmd,
 		Namespace:          nameSpace,
 		PodName:            podName,
@@ -103,8 +109,8 @@ func ExecCommandInContainer(nameSpace, podName, containerName string, cmd ...str
 // Returns:
 //   - stdout: A string containing the standard output of the executed command.
 //   - stderr: A string containing the standard error output of the executed command.
-func ExecBashInContainer(nameSpace, podName, containerName, cmd string) (string, string, error) {
-	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/bash", "-c", cmd)
+func ExecBashInContainer(ctx context.Context, nameSpace, podName, containerName, cmd string) (string, string, error) {
+	return ExecCommandInContainer(ctx, nameSpace, podName, containerName, "/bin/bash", "-c", cmd)
 }
 
 // ExecShellInContainer is a function that launches a command in the specified container using sh.
@@ -120,17 +126,17 @@ func ExecBashInContainer(nameSpace, podName, containerName, cmd string) (string,
 // Returns:
 //   - stdout: A string containing the standard output of the executed command.
 //   - stderr: A string containing the standard error output of the executed command.
-func ExecShellInContainer(nameSpace, podName, containerName, cmd string) (string, string, error) {
-	return ExecCommandInContainer(nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
+func ExecShellInContainer(ctx context.Context, nameSpace, podName, containerName, cmd string) (string, string, error) {
+	return ExecCommandInContainer(ctx, nameSpace, podName, containerName, "/bin/sh", "-c", cmd)
 }
 
-func ExecShellInContainerWithEnvVars(namespace string, podName string, containerName string, cmd string, envVars map[string]string) (string, string, error) {
+func ExecShellInContainerWithEnvVars(ctx context.Context, namespace string, podName string, containerName string, cmd string, envVars map[string]string) (string, string, error) {
 	commandWithVars := []string{"env"}
 	for key, value := range envVars {
 		commandWithVars = append(commandWithVars, key+"="+value)
 	}
 	commandWithVars = append(commandWithVars, "/bin/sh", "-c", cmd)
-	return ExecCommandInContainer(namespace, podName, containerName, commandWithVars...)
+	return ExecCommandInContainer(ctx, namespace, podName, containerName, commandWithVars...)
 }
 
 // execute is a helper function used internally to execute a command in a container.
@@ -148,12 +154,12 @@ func ExecShellInContainerWithEnvVars(namespace string, podName string, container
 //
 // Returns:
 //   - An error if one occurs during execution.
-func execute(method string, url *url.URL, config *rest.Config, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {
+func execute(ctx context.Context, method string, url *url.URL, config *rest.Config, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {
 	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
 	if err != nil {
 		return err
 	}
-	return exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+	return exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  stdin,
 		Stdout: stdout,
 		Stderr: stderr,

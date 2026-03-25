@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -22,7 +23,7 @@ var (
 )
 
 // DeployFlowExtractionPods creates the flow extraction pods if they do not exist yet.
-func DeployFlowExtractionPods(processingPodPaths []string) error {
+func DeployFlowExtractionPods(ctx context.Context, processingPodPaths []string) error {
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(processingPodPaths))
 	log.Print("Creating flow extraction pods")
@@ -36,7 +37,7 @@ func DeployFlowExtractionPods(processingPodPaths []string) error {
 				errCh <- fmt.Errorf("read processing pod %s: %w", path, err)
 				return
 			}
-			err = processingPod.DeployPod()
+			err = processingPod.DeployPod(ctx)
 			if err != nil {
 				errCh <- fmt.Errorf("deploy processing pod %s: %w", processingPod.Name, err)
 				return
@@ -62,17 +63,25 @@ func DeployFlowExtractionPods(processingPodPaths []string) error {
 }
 
 // Goroutine receiving scenario requests and scheduling them for execution.
-func ScheduleScenarioWorker(ch <-chan ScenarioScheduleRequest, results chan<- error, wg *sync.WaitGroup) {
+func ScheduleScenarioWorker(ctx context.Context, ch <-chan ScenarioScheduleRequest, results chan<- error, wg *sync.WaitGroup) {
 	defer wg.Done()
-	for sceneRequest := range ch {
-		if err := processScenarioRequest(sceneRequest); err != nil {
-			results <- err
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case sceneRequest, ok := <-ch:
+			if !ok {
+				return
+			}
+			if err := processScenarioRequest(ctx, sceneRequest); err != nil {
+				results <- err
+			}
 		}
 	}
 }
 
 // processScenarioRequest processes a scenario request.
-func processScenarioRequest(sceneRequest ScenarioScheduleRequest) error {
+func processScenarioRequest(ctx context.Context, sceneRequest ScenarioScheduleRequest) error {
 	// Read the scenario
 	scenario, err := scenarios.CreateScenario(sceneRequest.ScenarioPath)
 	if err != nil {
@@ -89,14 +98,14 @@ func processScenarioRequest(sceneRequest ScenarioScheduleRequest) error {
 	}
 
 	// Execute the scenario
-	err = scenario.Execute(scenarioOutputFolder)
+	err = scenario.Execute(ctx, scenarioOutputFolder)
 	if err != nil {
 		return fmt.Errorf("execute scenario %s: %w", scenarioName, err)
 	}
 
 	// Process the results of the scenario
 	log.Printf("Analyzing traffic for scenario %v...", scenarioName)
-	err = scenario.ProcessResults(scenarioOutputFolder, ProcessingPods)
+	err = scenario.ProcessResults(ctx, scenarioOutputFolder, ProcessingPods)
 	if err != nil {
 		return fmt.Errorf("process results for scenario %s: %w", scenarioName, err)
 	}

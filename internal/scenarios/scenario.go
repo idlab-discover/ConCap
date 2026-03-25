@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -13,19 +14,19 @@ type ScenarioInterface interface {
 	// FromYAML parses a YAML file into a scenario
 	FromYAML(filePath string) error
 	// DeployAllPods deploys all pods for the scenario
-	DeployAllPods() error
+	DeployAllPods(ctx context.Context) error
 	// StartTrafficCapture starts traffic capture on the target pod(s)
-	StartTrafficCapture() error
+	StartTrafficCapture(ctx context.Context) error
 	// ExecuteAttack executes the attack
-	ExecuteAttack() error
+	ExecuteAttack(ctx context.Context) error
 	// DownloadResults downloads the pcap capture and tcpdump log file from the target pod
-	DownloadResults(outputDir string) error
+	DownloadResults(ctx context.Context, outputDir string) error
 	// ProcessResults processes the results of the attack
-	ProcessResults(outputDir string, processingPods []*ProcessingPod) error
+	ProcessResults(ctx context.Context, outputDir string, processingPods []*ProcessingPod) error
 	// DeleteAllPods deletes all pods for the scenario
-	DeleteAllPods() error
+	DeleteAllPods(ctx context.Context) error
 	// Execute executes the entire scenario workflow
-	Execute(outputDir string) error
+	Execute(ctx context.Context, outputDir string) error
 	// GetName returns the scenario name
 	GetName() string
 }
@@ -51,36 +52,38 @@ func (s *BaseScenario) GetName() string {
 // 3. Executes the attack
 // 4. Downloads the pcap capture and updated scenario file
 // 5. Cleans up the pods
-func ExecuteScenario(s ScenarioInterface, outputDir string) error {
+func ExecuteScenario(ctx context.Context, s ScenarioInterface, outputDir string) error {
 	// 1. Deploy the pods for this scenario
-	err := s.DeployAllPods()
+	err := s.DeployAllPods(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to deploy pods for scenario: %v", err)
+		return fmt.Errorf("failed to deploy pods for scenario: %w", err)
 	}
 
 	// Defer pod deletion with error handling
 	defer func() {
-		if deleteErr := s.DeleteAllPods(); deleteErr != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if deleteErr := s.DeleteAllPods(cleanupCtx); deleteErr != nil {
 			log.Printf("Error: failed to clean up pods for scenario: %v", deleteErr)
 		}
 	}()
 
 	// 2. Start traffic capture on the target pod(s)
-	err = s.StartTrafficCapture()
+	err = s.StartTrafficCapture(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to start traffic capture for scenario: %v", err)
+		return fmt.Errorf("failed to start traffic capture for scenario: %w", err)
 	}
 
 	// 3. Execute the attack
-	err = s.ExecuteAttack()
+	err = s.ExecuteAttack(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to execute attack for scenario: %v", err)
+		return fmt.Errorf("failed to execute attack for scenario: %w", err)
 	}
 
 	// 4. Download the pcap capture and updated scenario file
-	err = s.DownloadResults(outputDir)
+	err = s.DownloadResults(ctx, outputDir)
 	if err != nil {
-		return fmt.Errorf("failed to download results for scenario: %v", err)
+		return fmt.Errorf("failed to download results for scenario: %w", err)
 	}
 
 	return nil

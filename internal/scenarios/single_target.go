@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -157,8 +158,8 @@ func (s *SingleTargetScenario) TargetPod() *apiv1.Pod {
 }
 
 // Execute executes the scenario
-func (s *SingleTargetScenario) Execute(outputDir string) error {
-	return ExecuteScenario(s, outputDir)
+func (s *SingleTargetScenario) Execute(ctx context.Context, outputDir string) error {
+	return ExecuteScenario(ctx, s, outputDir)
 }
 
 // WriteScenario marshals the scenario to YAML and writes it to disk
@@ -168,7 +169,7 @@ func (s *SingleTargetScenario) WriteScenario(outputDir string) error {
 
 // DeployAllPods deploys the attacker and target pods for the scenario in a concurrent manner.
 // It waits for all pods to be ready before returning.
-func (s *SingleTargetScenario) DeployAllPods() error {
+func (s *SingleTargetScenario) DeployAllPods(ctx context.Context) error {
 	log.Println("Deploying pods for scenario: ", s.Name)
 	s.InitTime = time.Now()
 	var wg sync.WaitGroup
@@ -181,7 +182,7 @@ func (s *SingleTargetScenario) DeployAllPods() error {
 	go func() {
 		defer wg.Done()
 		attackPod := s.AttackPod()
-		podspec, err := kubeapi.CreateReadyPod(attackPod)
+		podspec, err := kubeapi.CreateReadyPod(ctx, attackPod)
 		if err != nil {
 			errChan <- fmt.Errorf("failed to deploy attacker pod: %w", err)
 			return
@@ -193,7 +194,7 @@ func (s *SingleTargetScenario) DeployAllPods() error {
 	go func() {
 		defer wg.Done()
 		targetPod := s.TargetPod()
-		podspec, err := kubeapi.CreateReadyPod(targetPod)
+		podspec, err := kubeapi.CreateReadyPod(ctx, targetPod)
 		if err != nil {
 			errChan <- fmt.Errorf("failed to deploy target pod: %w", err)
 			return
@@ -218,10 +219,10 @@ func (s *SingleTargetScenario) DeployAllPods() error {
 }
 
 // StartTrafficCapture starts traffic capture on the target pod
-func (s *SingleTargetScenario) StartTrafficCapture() error {
+func (s *SingleTargetScenario) StartTrafficCapture(ctx context.Context) error {
 	log.Printf("Starting traffic capture on target pod %v for scenario %v", s.Deployment.TargetPodSpec.PodName, s.Name)
 	// Start tcpdump in the target pod, redirect stdo and stde to a log file, and write the pid to a file for later cleanup
-	stdo, stde, err := kubeapi.ExecShellInContainer(apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump",
+	stdo, stde, err := kubeapi.ExecShellInContainer(ctx, apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump",
 		`nohup tcpdump --no-promiscuous-mode --immediate-mode --buffer-size=32768 --packet-buffered -n --interface=eth0 -w /data/dump.pcap "`+s.GetTrafficFilter()+`" > /data/tcpdump.log 2>&1 & echo $! > /data/tcpdump.pid`)
 	if err != nil {
 		return fmt.Errorf("error starting tcpdump in scenario %v, error: %v", s.Name, err)
@@ -233,11 +234,11 @@ func (s *SingleTargetScenario) StartTrafficCapture() error {
 }
 
 // ExecuteAttack executes the attack
-func (s *SingleTargetScenario) ExecuteAttack() error {
+func (s *SingleTargetScenario) ExecuteAttack(ctx context.Context) error {
 	envVar := s.GetShellEnvVars()
 	log.Printf("Executing attack '%v' in scenario %v", s.Attacker.AtkCommand, s.Name)
 	s.StartTime = time.Now()
-	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(apiv1.NamespaceDefault, s.Deployment.AttackPodSpec.PodName, s.Deployment.AttackPodSpec.ContainerName, s.Attacker.AtkCommand, envVar)
+	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(ctx, apiv1.NamespaceDefault, s.Deployment.AttackPodSpec.PodName, s.Deployment.AttackPodSpec.ContainerName, s.Attacker.AtkCommand, envVar)
 	if err != nil {
 		return fmt.Errorf("error executing command in scenario %v, error: %v", s.Name, err)
 	}
@@ -250,7 +251,7 @@ func (s *SingleTargetScenario) ExecuteAttack() error {
 }
 
 // DownloadResults downloads the pcap capture and tcpdump log file from the target pod
-func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
+func (s *SingleTargetScenario) DownloadResults(ctx context.Context, outputDir string) error {
 	pcapPath := filepath.Join(outputDir, "dump.pcap")
 	tcpdumpLogPath := filepath.Join(outputDir, "tcpdump.log")
 	attackLogPath := filepath.Join(outputDir, "attacker.log")
@@ -258,6 +259,7 @@ func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
 
 	// Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
 	_, _, err := kubeapi.ExecShellInContainer(
+		ctx,
 		apiv1.NamespaceDefault,
 		s.Deployment.TargetPodSpec.PodName,
 		"tcpdump",
@@ -272,11 +274,11 @@ func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
 
 	// Download the pcap file and tcpdump log file from the target pod
 	log.Printf("Stopped traffic capture on target pod %v for scenario %v", targetPodName, s.Name)
-	err = kubeapi.CopyFileFromPod(targetPodName, "tcpdump", "/data/dump.pcap", pcapPath, true)
+	err = kubeapi.CopyFileFromPod(ctx, targetPodName, "tcpdump", "/data/dump.pcap", pcapPath, true)
 	if err != nil {
 		return fmt.Errorf("failed to download pcap file from target pod: %v", err)
 	}
-	err = kubeapi.CopyFileFromPod(targetPodName, "tcpdump", "/data/tcpdump.log", tcpdumpLogPath, true)
+	err = kubeapi.CopyFileFromPod(ctx, targetPodName, "tcpdump", "/data/tcpdump.log", tcpdumpLogPath, true)
 	if err != nil {
 		return fmt.Errorf("failed to download tcpdump log file from target pod: %v", err)
 	}
@@ -285,7 +287,7 @@ func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
 	attackPodName := s.Deployment.AttackPodSpec.PodName
 	attackContainer := s.Deployment.AttackPodSpec.ContainerName
 	// Copy /logs/attacker.log from the attack container to attack.log
-	err = kubeapi.CopyFileFromPod(attackPodName, attackContainer, "/logs/attacker.log", attackLogPath, true)
+	err = kubeapi.CopyFileFromPod(ctx, attackPodName, attackContainer, "/logs/attacker.log", attackLogPath, true)
 	if err != nil {
 		log.Printf("warning: failed to download attack log from attacker pod: %v", err)
 		// Not fatal, continue
@@ -301,7 +303,7 @@ func (s *SingleTargetScenario) DownloadResults(outputDir string) error {
 }
 
 // ProcessResults processes the results of the attack
-func (s *SingleTargetScenario) ProcessResults(outputDir string, processingPods []*ProcessingPod) error {
+func (s *SingleTargetScenario) ProcessResults(ctx context.Context, outputDir string, processingPods []*ProcessingPod) error {
 	log.Printf("Analyzing traffic for scenario %v...", s.Name)
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(processingPods))
@@ -313,7 +315,7 @@ func (s *SingleTargetScenario) ProcessResults(outputDir string, processingPods [
 			labels := copyLabels(s.Target.Labels)
 			labels["target"] = s.Target.Name
 
-			err := pod.ProcessPcap(filepath.Join(outputDir, "dump.pcap"), scenarioName, s.Target.Name, outputDir, labels)
+			err := pod.ProcessPcap(ctx, filepath.Join(outputDir, "dump.pcap"), scenarioName, s.Target.Name, outputDir, labels)
 			if err != nil {
 				errCh <- fmt.Errorf("process pcap with pod %s: %w", pod.Name, err)
 			}
@@ -335,7 +337,7 @@ func (s *SingleTargetScenario) ProcessResults(outputDir string, processingPods [
 }
 
 // DeleteAllPods deletes all pods for the scenario
-func (s *SingleTargetScenario) DeleteAllPods() error {
+func (s *SingleTargetScenario) DeleteAllPods(ctx context.Context) error {
 	// Create a slice of pod names to delete
 	podsToDelete := []string{
 		s.Deployment.AttackPodSpec.PodName,
@@ -344,7 +346,7 @@ func (s *SingleTargetScenario) DeleteAllPods() error {
 
 	// Delete each pod in the slice
 	for _, podName := range podsToDelete {
-		if err := kubeapi.DeletePod(podName); err != nil {
+		if err := kubeapi.DeletePod(ctx, podName); err != nil {
 			return fmt.Errorf("failed to delete pod %s: %w", podName, err)
 		}
 	}
