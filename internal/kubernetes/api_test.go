@@ -71,3 +71,96 @@ func TestDeletePodTreatsMissingPodAsDeleted(t *testing.T) {
 		t.Fatalf("DeletePod returned error for missing pod: %v", err)
 	}
 }
+
+func TestCreatePodRetriesTransientErrors(t *testing.T) {
+	clientset := kubefake.NewSimpleClientset()
+	originalPodsClient := podsClient
+	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	defer func() {
+		podsClient = originalPodsClient
+	}()
+
+	var createCalls int32
+	clientset.PrependReactor("create", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		call := atomic.AddInt32(&createCalls, 1)
+		if call < 3 {
+			return true, nil, apierrors.NewTooManyRequests("busy", 1)
+		}
+
+		pod := action.(clienttesting.CreateAction).GetObject().(*apiv1.Pod)
+		return true, pod, nil
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	pod, err := CreatePod(ctx, &apiv1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-a"}})
+	if err != nil {
+		t.Fatalf("CreatePod returned error: %v", err)
+	}
+	if pod.Name != "pod-a" {
+		t.Fatalf("CreatePod returned pod %q, want %q", pod.Name, "pod-a")
+	}
+	if got := atomic.LoadInt32(&createCalls); got != 3 {
+		t.Fatalf("CreatePod attempts = %d, want 3", got)
+	}
+}
+
+func TestCreatePodDoesNotRetryPermanentErrors(t *testing.T) {
+	clientset := kubefake.NewSimpleClientset()
+	originalPodsClient := podsClient
+	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	defer func() {
+		podsClient = originalPodsClient
+	}()
+
+	var createCalls int32
+	clientset.PrependReactor("create", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		atomic.AddInt32(&createCalls, 1)
+		return true, nil, apierrors.NewBadRequest("bad pod spec")
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if _, err := CreatePod(ctx, &apiv1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-a"}}); err == nil {
+		t.Fatal("CreatePod returned nil error for permanent failure")
+	}
+	if got := atomic.LoadInt32(&createCalls); got != 1 {
+		t.Fatalf("CreatePod attempts = %d, want 1", got)
+	}
+}
+
+func TestDeletePodRetriesTransientErrors(t *testing.T) {
+	clientset := kubefake.NewSimpleClientset()
+	originalPodsClient := podsClient
+	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	defer func() {
+		podsClient = originalPodsClient
+	}()
+
+	if _, err := podsClient.Create(context.Background(), &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod-a"},
+	}, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create test pod: %v", err)
+	}
+
+	var deleteCalls int32
+	clientset.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		call := atomic.AddInt32(&deleteCalls, 1)
+		if call == 1 {
+			return true, nil, apierrors.NewServiceUnavailable("busy")
+		}
+		return false, nil, nil
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := DeletePod(ctx, "pod-a"); err != nil {
+		t.Fatalf("DeletePod returned error: %v", err)
+	}
+	if got := atomic.LoadInt32(&deleteCalls); got != 2 {
+		t.Fatalf("DeletePod attempts = %d, want 2", got)
+	}
+}

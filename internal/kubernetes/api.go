@@ -82,13 +82,10 @@ func WatchErrors() <-chan error {
 func CreatePod(ctx context.Context, pod *apiv1.Pod) (*apiv1.Pod, error) {
 	// result, err := podsClient.Create(ctx, pod, metav1.CreateOptions{})
 	var result *apiv1.Pod
-	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		// Define the errors that you want to retry on
-		return true // Retry on any error
-	}, func() error {
+	err := retry.OnError(retry.DefaultBackoff, shouldRetry, func() error {
 		var err error
 		result, err = podsClient.Create(ctx, pod, metav1.CreateOptions{})
-		if err != nil {
+		if shouldRetry(err) {
 			log.Printf("Failed to create pod: %v. Retrying...", err)
 		}
 		return err
@@ -152,15 +149,12 @@ func SetPodSpec(pod *apiv1.Pod) RunningPodSpec {
 //   - An error if there were any issues encountered during the Pod deletion process.
 func DeletePod(ctx context.Context, podName string) error {
 	// Delete the pod
-	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		// Define the errors that you want to retry on
-		return true // Retry on any error; you can customize this logic
-	}, func() error {
+	err := retry.OnError(retry.DefaultBackoff, shouldRetry, func() error {
 		err := podsClient.Delete(ctx, podName, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		if err != nil {
+		if shouldRetry(err) {
 			log.Printf("Failed to delete pod: %v. Retrying...", err)
 		}
 		return err
@@ -185,13 +179,10 @@ func DeletePod(ctx context.Context, podName string) error {
 //   - An error if there were any issues encountered during the existence check process.
 func PodExists(ctx context.Context, podName string) (bool, error) {
 	var result *apiv1.Pod
-	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		// Retry on any error except for "not found" errors
-		return !apierrors.IsNotFound(err)
-	}, func() error {
+	err := retry.OnError(retry.DefaultBackoff, shouldRetry, func() error {
 		var err error
 		result, err = podsClient.Get(ctx, podName, metav1.GetOptions{})
-		if err != nil && !apierrors.IsNotFound(err) {
+		if shouldRetry(err) {
 			log.Printf("Failed to get pod: %v. Retrying...", err)
 		}
 		return err
@@ -291,4 +282,15 @@ func waitForPodDeletion(ctx context.Context, podName string) error {
 		}
 		return false, nil
 	})
+}
+
+func shouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return apierrors.IsTimeout(err) ||
+		apierrors.IsServerTimeout(err) ||
+		apierrors.IsTooManyRequests(err) ||
+		apierrors.IsServiceUnavailable(err)
 }
