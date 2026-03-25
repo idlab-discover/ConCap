@@ -15,24 +15,32 @@ import (
 )
 
 type PodWatcher struct {
-	podsClient  v1.PodInterface
-	eventsChans map[string]chan *apiv1.Pod // Map of channels to send events to, dynamically changing pods we are watching, use mutex to protect
-	mu          sync.Mutex                 // Mutex to protect concurrent access eventsChans
+	podsClient v1.PodInterface
+	waiters    map[string]*podWaiter
+	mu         sync.Mutex
+}
+
+type podWaiter struct {
+	events chan *apiv1.Pod
+	done   chan struct{}
 }
 
 func NewPodWatcher(podsClient v1.PodInterface) PodWatcher {
 	return PodWatcher{
-		podsClient:  podsClient,
-		eventsChans: make(map[string]chan *apiv1.Pod),
+		podsClient: podsClient,
+		waiters:    make(map[string]*podWaiter),
 	}
 }
 
-func (pw *PodWatcher) Start(ctx context.Context) {
+func (pw *PodWatcher) Start(ctx context.Context) <-chan error {
+	errCh := make(chan error, 1)
 	go func() {
+		defer close(errCh)
 		if err := pw.WatchPods(ctx); err != nil {
-			log.Fatalf("Error watching pods: %v", err)
+			errCh <- err
 		}
 	}()
+	return errCh
 }
 
 // WaitForPodReady blocks until the pod is in the running phase and all the containers are ready.
@@ -41,24 +49,30 @@ func (pw *PodWatcher) Start(ctx context.Context) {
 // Then it waits for updates from the PodWatcher for the desired phase to be reached.
 func (pw *PodWatcher) WaitForPodReady(ctx context.Context, podName string) (*apiv1.Pod, error) {
 	pw.mu.Lock()
-	if _, exists := pw.eventsChans[podName]; exists {
+	waiter, exists := pw.waiters[podName]
+	if exists {
 		fmt.Printf("Already watching pod %s", podName)
 	} else {
-		pw.eventsChans[podName] = make(chan *apiv1.Pod)
+		waiter = &podWaiter{
+			events: make(chan *apiv1.Pod, 1),
+			done:   make(chan struct{}),
+		}
+		pw.waiters[podName] = waiter
 	}
-	eventsChan := pw.eventsChans[podName]
 	pw.mu.Unlock()
 
 	defer func() {
 		pw.mu.Lock()
-		close(eventsChan)
-		delete(pw.eventsChans, podName)
+		if current, ok := pw.waiters[podName]; ok && current == waiter {
+			delete(pw.waiters, podName)
+			close(waiter.done)
+		}
 		pw.mu.Unlock()
 	}()
 
 	for {
 		select {
-		case pod := <-eventsChan:
+		case pod := <-waiter.events:
 			if pod.Status.Phase == apiv1.PodRunning && isPodReady(pod) {
 				// Pod has reached desired phase and stop watching the pod
 				return pod, nil
@@ -105,12 +119,38 @@ func (pw *PodWatcher) WatchPods(ctx context.Context) error {
 				log.Printf("Unexpected event object while watching pods: %T", event.Object)
 				continue // should not happen, only listen to pod events
 			}
-			pw.mu.Lock()
-			if eventsChan, exists := pw.eventsChans[pod.Name]; exists {
-				// Send pod event to the channel if we want to receive updates for this pod
-				eventsChan <- pod
-			}
-			pw.mu.Unlock()
+			pw.notify(pod)
 		}
+	}
+}
+
+func (pw *PodWatcher) notify(pod *apiv1.Pod) {
+	pw.mu.Lock()
+	waiter, exists := pw.waiters[pod.Name]
+	pw.mu.Unlock()
+	if !exists {
+		return
+	}
+
+	select {
+	case <-waiter.done:
+		return
+	default:
+	}
+
+	select {
+	case waiter.events <- pod:
+		return
+	default:
+	}
+
+	select {
+	case <-waiter.events:
+	default:
+	}
+
+	select {
+	case waiter.events <- pod:
+	case <-waiter.done:
 	}
 }

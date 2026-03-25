@@ -32,6 +32,7 @@ var kubeConfig *rest.Config
 var kubeClient kubernetes.Clientset
 var podsClient v1.PodInterface
 var podWatcher PodWatcher
+var podWatcherErrs <-chan error
 var initOnce sync.Once
 var initErr error
 
@@ -55,10 +56,15 @@ func Init() error {
 		kubeClient = *clientset
 		podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
 		podWatcher = NewPodWatcher(podsClient)
-		podWatcher.Start(context.Background())
+		podWatcherErrs = podWatcher.Start(context.Background())
 	})
 
 	return initErr
+}
+
+// WatchErrors returns asynchronous pod watcher failures.
+func WatchErrors() <-chan error {
+	return podWatcherErrs
 }
 
 // CreatePod is a function that takes a pointer to a Kubernetes Pod object as input.

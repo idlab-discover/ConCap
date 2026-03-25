@@ -37,6 +37,13 @@ func main() {
 	if err := kubeapi.Init(); err != nil {
 		log.Fatalf("initialize Kubernetes client: %v", err)
 	}
+	go func() {
+		for err := range kubeapi.WatchErrors() {
+			if err != nil {
+				log.Fatalf("pod watcher failed: %v", err)
+			}
+		}
+	}()
 
 	outputDirAbsPath, err := filepath.Abs(flagstore.Directory)
 	if err != nil {
