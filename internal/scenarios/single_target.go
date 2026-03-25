@@ -75,8 +75,7 @@ func (s *SingleTargetScenario) FromYAML(filePath string) error {
 	if s.Attacker.AtkTime != EmptyAttackDuration {
 		s.Attacker.AtkCommand = "timeout " + s.Attacker.AtkTime + " " + s.Attacker.AtkCommand
 	}
-	// Append the command to write output to default container logs
-	s.Attacker.AtkCommand += " 2>&1 | tee -a /logs/attacker.log | tee -a /proc/1/fd/1"
+	s.Attacker.AtkCommand = withAttackLogging(s.Attacker.AtkCommand)
 
 	s.UUID = uuid.New()
 	s.Name = CleanPodName(strings.TrimSuffix(filepath.Base(fileHandler.Name()), filepath.Ext(fileHandler.Name())))
