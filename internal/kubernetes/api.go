@@ -9,10 +9,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"time"
 
 	apiv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -155,6 +157,9 @@ func DeletePod(ctx context.Context, podName string) error {
 		return true // Retry on any error; you can customize this logic
 	}, func() error {
 		err := podsClient.Delete(ctx, podName, metav1.DeleteOptions{})
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		if err != nil {
 			log.Printf("Failed to delete pod: %v. Retrying...", err)
 		}
@@ -162,6 +167,9 @@ func DeletePod(ctx context.Context, podName string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete pod after retries: %w", err)
+	}
+	if err := waitForPodDeletion(ctx, podName); err != nil {
+		return fmt.Errorf("wait for pod %s deletion: %w", podName, err)
 	}
 	return nil
 }
@@ -270,4 +278,17 @@ func CopyFileToPod(ctx context.Context, podName string, containerName string, so
 	log.Printf("File %s uploaded successfully", sourcePath)
 
 	return nil
+}
+
+func waitForPodDeletion(ctx context.Context, podName string) error {
+	return wait.PollUntilContextCancel(ctx, 250*time.Millisecond, true, func(ctx context.Context) (bool, error) {
+		_, err := podsClient.Get(ctx, podName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return false, nil
+	})
 }
