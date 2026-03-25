@@ -12,7 +12,11 @@ import (
 // The command is built based on the network configuration in the scenario
 // Configuration options that are empty or zero are not added to the tc command
 func (n *Network) GetTCCommand() string {
-	tcCommand := "tc qdisc show dev eth0" // Show the current qdisc configuration in the Kubernetes logs
+	commands := []string{
+		"printf 'qdisc before:\\n'",
+		"tc qdisc show dev eth0",
+	}
+	shapingApplied := false
 	if n.Bandwidth != "" {
 		// Calculate the burst buffer size based on the bandwidth and a burst duration of 5ms
 		bandwidthBitsPerSecond, err := ParseSize(n.Bandwidth)
@@ -21,23 +25,35 @@ func (n *Network) GetTCCommand() string {
 			return ""
 		}
 		burst := bandwidthBitsPerSecond * 0.005 / 8
-		tcCommand += fmt.Sprintf(" && tc qdisc replace dev eth0 root handle 1: tbf rate %s burst %.f", n.Bandwidth, burst)
+		command := fmt.Sprintf("tc qdisc replace dev eth0 root handle 1: tbf rate %s burst %.f", n.Bandwidth, burst)
 		if n.QueueSize != "" {
-			tcCommand += fmt.Sprintf(" latency %s", n.QueueSize)
+			command += fmt.Sprintf(" latency %s", n.QueueSize)
 		} else {
-			tcCommand += " latency 100ms" // Default latency if not specified
+			command += " latency 100ms" // Default latency if not specified
 		}
+		commands = append(commands, command)
+		shapingApplied = true
 	}
 
 	if n.needsNetem() {
+		command := ""
 		if n.Bandwidth != "" {
-			tcCommand += " && tc qdisc replace dev eth0 parent 1:1 netem"
+			command = "tc qdisc replace dev eth0 parent 1:1 netem"
 		} else {
-			tcCommand += " && tc qdisc replace dev eth0 root netem"
+			command = "tc qdisc replace dev eth0 root netem"
 		}
-		tcCommand += n.buildNetemCommand()
+		commands = append(commands, command+n.buildNetemCommand())
+		shapingApplied = true
 	}
-	return tcCommand
+
+	if shapingApplied {
+		commands = append(commands,
+			"printf 'qdisc after:\\n'",
+			"tc qdisc show dev eth0",
+		)
+	}
+
+	return strings.Join(commands, " && ")
 }
 
 // needsNetem checks if netem configuration is needed
