@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/idlab-discover/concap/internal/controller"
+	kubeapi "github.com/idlab-discover/concap/internal/kubernetes"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -32,6 +33,9 @@ func parseFlags() error {
 func main() {
 	if err := parseFlags(); err != nil {
 		log.Fatal(err)
+	}
+	if err := kubeapi.Init(); err != nil {
+		log.Fatalf("initialize Kubernetes client: %v", err)
 	}
 
 	outputDirAbsPath, _ := filepath.Abs(flagstore.Directory)
