@@ -18,6 +18,28 @@
 - Kubernetes cluster with access configured via `kubeconfig`.
 - Go environment for running the framework.
 - Docker images for the attack and target pods.
+- A `concap` namespace containing a `ghcr-creds` Docker registry secret.
+- Nodes labeled for deterministic attacker and target placement.
+
+### Cluster Setup
+
+Concap creates all scenario and processing pods in the `concap` namespace. Every generated pod explicitly references the `ghcr-creds` image pull secret. Configure the namespace and credentials from a working local Docker login:
+
+```sh
+kubectl create namespace concap
+kubectl -n concap create secret generic ghcr-creds \
+  --from-file=.dockerconfigjson="$HOME/.docker/config.json" \
+  --type=kubernetes.io/dockerconfigjson
+```
+
+Attackers and targets are deliberately placed on different physical nodes. Label the more powerful traffic-generator node for attackers and the other node for targets:
+
+```sh
+kubectl label node rgbcore concap-role=attacker --overwrite
+kubectl label node nuccore concap-role=target --overwrite
+```
+
+Concap validates the namespace and pull secret at startup. Scenario pods remain pending if the required role-labeled node is unavailable; they do not silently fall back to same-node placement.
 
 ## Installation
 

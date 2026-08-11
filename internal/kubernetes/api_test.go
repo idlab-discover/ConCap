@@ -18,7 +18,7 @@ import (
 func TestDeletePodWaitsForPodToDisappear(t *testing.T) {
 	clientset := kubefake.NewSimpleClientset()
 	originalPodsClient := podsClient
-	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	podsClient = clientset.CoreV1().Pods(WorkloadNamespace)
 	defer func() {
 		podsClient = originalPodsClient
 	}()
@@ -59,7 +59,7 @@ func TestDeletePodWaitsForPodToDisappear(t *testing.T) {
 func TestDeletePodTreatsMissingPodAsDeleted(t *testing.T) {
 	clientset := kubefake.NewSimpleClientset()
 	originalPodsClient := podsClient
-	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	podsClient = clientset.CoreV1().Pods(WorkloadNamespace)
 	defer func() {
 		podsClient = originalPodsClient
 	}()
@@ -75,7 +75,7 @@ func TestDeletePodTreatsMissingPodAsDeleted(t *testing.T) {
 func TestCreatePodRetriesTransientErrors(t *testing.T) {
 	clientset := kubefake.NewSimpleClientset()
 	originalPodsClient := podsClient
-	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	podsClient = clientset.CoreV1().Pods(WorkloadNamespace)
 	defer func() {
 		podsClient = originalPodsClient
 	}()
@@ -109,7 +109,7 @@ func TestCreatePodRetriesTransientErrors(t *testing.T) {
 func TestCreatePodDoesNotRetryPermanentErrors(t *testing.T) {
 	clientset := kubefake.NewSimpleClientset()
 	originalPodsClient := podsClient
-	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	podsClient = clientset.CoreV1().Pods(WorkloadNamespace)
 	defer func() {
 		podsClient = originalPodsClient
 	}()
@@ -134,7 +134,7 @@ func TestCreatePodDoesNotRetryPermanentErrors(t *testing.T) {
 func TestDeletePodRetriesTransientErrors(t *testing.T) {
 	clientset := kubefake.NewSimpleClientset()
 	originalPodsClient := podsClient
-	podsClient = clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	podsClient = clientset.CoreV1().Pods(WorkloadNamespace)
 	defer func() {
 		podsClient = originalPodsClient
 	}()

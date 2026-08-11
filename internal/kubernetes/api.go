@@ -53,10 +53,14 @@ func Init(ctx context.Context) error {
 			initErr = fmt.Errorf("create Kubernetes client: %w", err)
 			return
 		}
+		if err := validateRuntimePrerequisites(ctx, clientset); err != nil {
+			initErr = fmt.Errorf("validate Kubernetes runtime prerequisites: %w", err)
+			return
+		}
 
 		kubeConfig = kubeConf
 		kubeClient = *clientset
-		podsClient = kubeClient.CoreV1().Pods(apiv1.NamespaceDefault)
+		podsClient = kubeClient.CoreV1().Pods(WorkloadNamespace)
 		podWatcher = NewPodWatcher(podsClient)
 		podWatcherErrs = podWatcher.Start(ctx)
 	})
@@ -212,7 +216,7 @@ func PodExists(ctx context.Context, podName string) (bool, error) {
 //   - An error if there were any issues encountered during the file copy process.
 func CopyFileFromPod(ctx context.Context, podName string, containerName string, sourcePath string, destPath string, keepFile bool) error {
 	// Construct the kubectl cp command
-	cmd := exec.CommandContext(ctx, "kubectl", "cp", "--retries=10", fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, sourcePath), destPath, "-c", containerName)
+	cmd := exec.CommandContext(ctx, "kubectl", "cp", "--retries=10", fmt.Sprintf("%s/%s:%s", WorkloadNamespace, podName, sourcePath), destPath, "-c", containerName)
 
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")
@@ -228,7 +232,7 @@ func CopyFileFromPod(ctx context.Context, podName string, containerName string, 
 	// Delete the file from the Pod if keepFile is set to false
 	if !keepFile {
 		// Execute the rm command in the Pod to delete the file
-		_, stde, err := ExecCommandInContainer(ctx, apiv1.NamespaceDefault, podName, containerName, "rm", sourcePath)
+		_, stde, err := ExecCommandInContainer(ctx, WorkloadNamespace, podName, containerName, "rm", sourcePath)
 		if err != nil {
 			log.Println("Error deleting file from Pod: ", err)
 		}
@@ -253,7 +257,7 @@ func CopyFileFromPod(ctx context.Context, podName string, containerName string, 
 //   - An error if there were any issues encountered during the file copy process.
 func CopyFileToPod(ctx context.Context, podName string, containerName string, sourcePath string, destPath string) error {
 	// Construct the kubectl cp command
-	cmd := exec.CommandContext(ctx, "kubectl", "cp", "--retries=10", sourcePath, fmt.Sprintf("%s/%s:%s", apiv1.NamespaceDefault, podName, destPath), "-c", containerName)
+	cmd := exec.CommandContext(ctx, "kubectl", "cp", "--retries=10", sourcePath, fmt.Sprintf("%s/%s:%s", WorkloadNamespace, podName, destPath), "-c", containerName)
 
 	// Set the environment variables if needed (e.g., KUBECONFIG)
 	// cmd.Env = append(os.Environ(), "KUBECONFIG=/path/to/kubeconfig")

@@ -271,7 +271,7 @@ func (s *MultiTargetScenario) StartTrafficCapture(ctx context.Context) error {
 			// Start tcpdump in the target pod
 			stdo, stde, err := kubeapi.ExecShellInContainer(
 				ctx,
-				apiv1.NamespaceDefault,
+				kubeapi.WorkloadNamespace,
 				podSpec.PodName,
 				"tcpdump",
 				`nohup tcpdump --no-promiscuous-mode --immediate-mode --buffer-size=32768 --packet-buffered -n --interface=eth0 -w /data/dump.pcap "`+filter+`" > /data/tcpdump.log 2>&1 & echo $! > /data/tcpdump.pid`)
@@ -308,7 +308,7 @@ func (s *MultiTargetScenario) ExecuteAttack(ctx context.Context) error {
 	s.StartTime = time.Now()
 	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(
 		ctx,
-		apiv1.NamespaceDefault,
+		kubeapi.WorkloadNamespace,
 		s.Deployment.AttackPodSpec.PodName,
 		s.Deployment.AttackPodSpec.ContainerName,
 		s.Attacker.AtkCommand,
@@ -349,7 +349,7 @@ func (s *MultiTargetScenario) downloadResults(ctx context.Context, outputDir, pr
 			// Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
 			_, _, err := kubeapi.ExecShellInContainer(
 				ctx,
-				apiv1.NamespaceDefault,
+				kubeapi.WorkloadNamespace,
 				podSpec.PodName,
 				"tcpdump",
 				`kill -SIGINT $(cat /data/tcpdump.pid) && 

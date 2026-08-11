@@ -220,7 +220,7 @@ func (s *SingleTargetScenario) DeployAllPods(ctx context.Context) error {
 func (s *SingleTargetScenario) StartTrafficCapture(ctx context.Context) error {
 	log.Printf("Starting traffic capture on target pod %v for scenario %v", s.Deployment.TargetPodSpec.PodName, s.Name)
 	// Start tcpdump in the target pod, redirect stdo and stde to a log file, and write the pid to a file for later cleanup
-	stdo, stde, err := kubeapi.ExecShellInContainer(ctx, apiv1.NamespaceDefault, s.Deployment.TargetPodSpec.PodName, "tcpdump",
+	stdo, stde, err := kubeapi.ExecShellInContainer(ctx, kubeapi.WorkloadNamespace, s.Deployment.TargetPodSpec.PodName, "tcpdump",
 		`nohup tcpdump --no-promiscuous-mode --immediate-mode --buffer-size=32768 --packet-buffered -n --interface=eth0 -w /data/dump.pcap "`+s.GetTrafficFilter()+`" > /data/tcpdump.log 2>&1 & echo $! > /data/tcpdump.pid`)
 	if err != nil {
 		return fmt.Errorf("error starting tcpdump in scenario %v, error: %v", s.Name, err)
@@ -236,7 +236,7 @@ func (s *SingleTargetScenario) ExecuteAttack(ctx context.Context) error {
 	envVar := s.GetShellEnvVars()
 	log.Printf("Executing attack '%v' in scenario %v", s.Attacker.AtkCommand, s.Name)
 	s.StartTime = time.Now()
-	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(ctx, apiv1.NamespaceDefault, s.Deployment.AttackPodSpec.PodName, s.Deployment.AttackPodSpec.ContainerName, s.Attacker.AtkCommand, envVar)
+	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(ctx, kubeapi.WorkloadNamespace, s.Deployment.AttackPodSpec.PodName, s.Deployment.AttackPodSpec.ContainerName, s.Attacker.AtkCommand, envVar)
 	s.StopTime = time.Now()
 	if err != nil {
 		return fmt.Errorf("error executing command in scenario %v: %w", s.Name, err)
@@ -267,7 +267,7 @@ func (s *SingleTargetScenario) downloadResults(ctx context.Context, outputDir, p
 	// Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
 	_, _, err := kubeapi.ExecShellInContainer(
 		ctx,
-		apiv1.NamespaceDefault,
+		kubeapi.WorkloadNamespace,
 		s.Deployment.TargetPodSpec.PodName,
 		"tcpdump",
 		`kill -SIGINT $(cat /data/tcpdump.pid) && 

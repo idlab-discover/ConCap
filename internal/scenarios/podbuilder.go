@@ -3,6 +3,7 @@ package scenarios
 import (
 	"fmt"
 
+	kubeapi "github.com/idlab-discover/concap/internal/kubernetes"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,8 +42,6 @@ const (
 	// LabelProcessingPod is the label value for processing pods
 	LabelProcessingPod = "processing-pod"
 
-	// PodNamespaceName is the namespace where all pods are created
-	PodNamespaceName = "default"
 	// AttackerPodSuffix is the suffix used for attacker pod names
 	AttackerPodSuffix = "-A"
 	// TargetPodSuffix is the suffix used for target pod names
@@ -57,6 +56,12 @@ const (
 	PodTerminationGracePeriodSeconds int64 = 5
 	// CapabilityNetAdmin is the capability required for network configuration
 	CapabilityNetAdmin = "NET_ADMIN"
+	// NodeRoleLabel separates traffic generators and targets across physical hosts.
+	NodeRoleLabel = "concap-role"
+	// NodeRoleAttacker selects nodes intended to generate attack traffic.
+	NodeRoleAttacker = "attacker"
+	// NodeRoleTarget selects nodes intended to host targets and packet capture.
+	NodeRoleTarget = "target"
 )
 
 // BuildAttackerPod creates a pod definition for an attacker
@@ -87,13 +92,15 @@ func BuildAttackerPod(name string, attacker Attacker, scenarioName string) *apiv
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      CleanPodName(scenarioName + AttackerPodSuffix),
-			Namespace: PodNamespaceName,
+			Namespace: kubeapi.WorkloadNamespace,
 			Labels: map[string]string{
 				LabelConcap:   LabelAttackerPod,
 				LabelScenario: scenarioName,
 			},
 		},
 		Spec: apiv1.PodSpec{
+			ImagePullSecrets:              []apiv1.LocalObjectReference{{Name: kubeapi.ImagePullSecretName}},
+			NodeSelector:                  map[string]string{NodeRoleLabel: NodeRoleAttacker},
 			RestartPolicy:                 RestartPolicyNever,
 			TerminationGracePeriodSeconds: func(v int64) *int64 { return &v }(PodTerminationGracePeriodSeconds),
 			InitContainers: []apiv1.Container{
@@ -204,13 +211,15 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
-			Namespace: PodNamespaceName,
+			Namespace: kubeapi.WorkloadNamespace,
 			Labels: map[string]string{
 				LabelConcap:   LabelTargetPod,
 				LabelScenario: scenarioName,
 			},
 		},
 		Spec: apiv1.PodSpec{
+			ImagePullSecrets:              []apiv1.LocalObjectReference{{Name: kubeapi.ImagePullSecretName}},
+			NodeSelector:                  map[string]string{NodeRoleLabel: NodeRoleTarget},
 			RestartPolicy:                 RestartPolicyNever,
 			TerminationGracePeriodSeconds: func(v int64) *int64 { return &v }(PodTerminationGracePeriodSeconds),
 			InitContainers: []apiv1.Container{
@@ -259,12 +268,13 @@ func ProcessingPodSpec(processingPod *ProcessingPod) *apiv1.Pod {
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      processingPod.Name,
-			Namespace: apiv1.NamespaceDefault,
+			Namespace: kubeapi.WorkloadNamespace,
 			Labels: map[string]string{
 				"concap": "processing-pod",
 			},
 		},
 		Spec: apiv1.PodSpec{
+			ImagePullSecrets: []apiv1.LocalObjectReference{{Name: kubeapi.ImagePullSecretName}},
 			Containers: []apiv1.Container{
 				{
 					Name:            processingPod.Name,

@@ -11,7 +11,6 @@ import (
 
 	kubeapi "github.com/idlab-discover/concap/internal/kubernetes"
 	"gopkg.in/yaml.v2"
-	apiv1 "k8s.io/api/core/v1"
 )
 
 type ProcessingPod struct {
@@ -71,7 +70,7 @@ func (p *ProcessingPod) ProcessPcap(ctx context.Context, filePath string, scenar
 	envVars["INPUT_FILE_NAME"] = scenarioName + "-" + targetName
 	envVars["OUTPUT_FILE"] = outputFileContainer
 	log.Println("Analyzing traffic using pod: ", p.Name)
-	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(ctx, apiv1.NamespaceDefault, p.Name, p.Name, p.Command, envVars)
+	stdo, stde, err := kubeapi.ExecShellInContainerWithEnvVars(ctx, kubeapi.WorkloadNamespace, p.Name, p.Name, p.Command, envVars)
 	if err != nil {
 		log.Printf("stdout: %s\nstderr: %s", stdo, stde)
 		return fmt.Errorf("error analyzing traffic: %w", err)
