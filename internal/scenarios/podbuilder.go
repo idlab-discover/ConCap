@@ -15,6 +15,8 @@ const (
 	ImageIproute2 = "ghcr.io/idlab-discover/concap/iproute2:1.0.0"
 	// ImageTcpdump is the container image used for capturing network traffic in target pods
 	ImageTcpdump = "ghcr.io/idlab-discover/concap/tcpdump:1.0.0"
+	// ImageReordercap is the container image used for timestamp-order normalizing captured pcaps
+	ImageReordercap = "ghcr.io/idlab-discover/concap/reordercap:1.0.0"
 )
 
 // Pod configuration constants
@@ -23,6 +25,8 @@ const (
 	InitContainerName = "init-tc"
 	// TcpdumpContainerName is the name of the container used for traffic capture
 	TcpdumpContainerName = "tcpdump"
+	// ReordercapContainerName is the name of the container used to normalize pcap record order
+	ReordercapContainerName = "reordercap"
 	// DataMountPath is the path where captured data is stored in the tcpdump container
 	DataMountPath = "/data"
 	// DataVolumeName is the name of the volume used for storing captured data
@@ -240,7 +244,7 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 			Containers: []apiv1.Container{
 				targetContainer,
 				{
-					Name:  "tcpdump",
+					Name:  TcpdumpContainerName,
 					Image: ImageTcpdump,
 					// When pods are deployed the actual tcpdump command will be started with correct filter including the IP addresses.
 					Command: []string{"tail", "-f", "/dev/null"}, // Command to keep the container running
@@ -248,6 +252,17 @@ func BuildTargetPod(targetConfig TargetConfig, scenarioName string, index int) *
 						{
 							Name:      "node-storage",
 							MountPath: "/data",
+						},
+					},
+				},
+				{
+					Name:    ReordercapContainerName,
+					Image:   ImageReordercap,
+					Command: []string{"tail", "-f", "/dev/null"},
+					VolumeMounts: []apiv1.VolumeMount{
+						{
+							Name:      DataVolumeName,
+							MountPath: DataMountPath,
 						},
 					},
 				},

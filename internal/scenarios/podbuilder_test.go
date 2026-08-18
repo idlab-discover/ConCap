@@ -60,6 +60,46 @@ func TestBuildTargetPodUsesScenarioCleanupPolicy(t *testing.T) {
 	}
 }
 
+func TestBuildTargetPodIncludesCaptureNormalizationSidecars(t *testing.T) {
+	pod := BuildTargetPod(TargetConfig{
+		Name:       "target",
+		Image:      "example/target:latest",
+		CPURequest: "100m",
+		MemRequest: "128Mi",
+	}, "scenario-a", 0)
+
+	containers := map[string]apiv1.Container{}
+	for _, container := range pod.Spec.Containers {
+		containers[container.Name] = container
+	}
+
+	tcpdump, ok := containers[TcpdumpContainerName]
+	if !ok {
+		t.Fatalf("target pod missing %q container", TcpdumpContainerName)
+	}
+	if got, want := tcpdump.Image, ImageTcpdump; got != want {
+		t.Fatalf("tcpdump image = %q, want %q", got, want)
+	}
+
+	reordercap, ok := containers[ReordercapContainerName]
+	if !ok {
+		t.Fatalf("target pod missing %q container", ReordercapContainerName)
+	}
+	if got, want := reordercap.Image, ImageReordercap; got != want {
+		t.Fatalf("reordercap image = %q, want %q", got, want)
+	}
+
+	for _, container := range []apiv1.Container{tcpdump, reordercap} {
+		if len(container.VolumeMounts) != 1 {
+			t.Fatalf("%s volume mounts = %#v, want one shared data mount", container.Name, container.VolumeMounts)
+		}
+		mount := container.VolumeMounts[0]
+		if mount.Name != DataVolumeName || mount.MountPath != DataMountPath {
+			t.Fatalf("%s data mount = %#v, want %s mounted at %s", container.Name, mount, DataVolumeName, DataMountPath)
+		}
+	}
+}
+
 func TestProcessingPodUsesConcapRuntimeContract(t *testing.T) {
 	pod := ProcessingPodSpec(&ProcessingPod{
 		Name:           "processor",

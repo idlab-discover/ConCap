@@ -219,14 +219,8 @@ func (s *SingleTargetScenario) DeployAllPods(ctx context.Context) error {
 // StartTrafficCapture starts traffic capture on the target pod
 func (s *SingleTargetScenario) StartTrafficCapture(ctx context.Context) error {
 	log.Printf("Starting traffic capture on target pod %v for scenario %v", s.Deployment.TargetPodSpec.PodName, s.Name)
-	// Start tcpdump in the target pod, redirect stdo and stde to a log file, and write the pid to a file for later cleanup
-	stdo, stde, err := kubeapi.ExecShellInContainer(ctx, kubeapi.WorkloadNamespace, s.Deployment.TargetPodSpec.PodName, "tcpdump",
-		`nohup tcpdump --no-promiscuous-mode --immediate-mode --buffer-size=32768 --packet-buffered -n --interface=eth0 -w /data/dump.pcap "`+s.GetTrafficFilter()+`" > /data/tcpdump.log 2>&1 & echo $! > /data/tcpdump.pid`)
-	if err != nil {
+	if err := startTcpdumpCapture(ctx, s.Deployment.TargetPodSpec.PodName, s.GetTrafficFilter()); err != nil {
 		return fmt.Errorf("error starting tcpdump in scenario %v, error: %v", s.Name, err)
-	}
-	if stde != "" {
-		log.Printf("%s : %s : stdout: %s\n\t stderr: %s", s.Name, s.Attacker.Name, stdo, stde)
 	}
 	return nil
 }
@@ -260,34 +254,33 @@ func (s *SingleTargetScenario) DownloadPartialResults(ctx context.Context, outpu
 
 func (s *SingleTargetScenario) downloadResults(ctx context.Context, outputDir, prefix string) error {
 	pcapPath := filepath.Join(outputDir, prefix+"dump.pcap")
+	rawPcapPath := filepath.Join(outputDir, prefix+"dump.raw.pcap")
 	tcpdumpLogPath := filepath.Join(outputDir, prefix+"tcpdump.log")
+	reordercapLogPath := filepath.Join(outputDir, prefix+"reordercap.log")
 	attackLogPath := filepath.Join(outputDir, prefix+"attacker.log")
 	targetPodName := s.Deployment.TargetPodSpec.PodName
 
-	// Stop tcpdump. Workaround for tcpdump becoming a zombie process because spawned by other shell
-	_, _, err := kubeapi.ExecShellInContainer(
-		ctx,
-		kubeapi.WorkloadNamespace,
-		s.Deployment.TargetPodSpec.PodName,
-		"tcpdump",
-		`kill -SIGINT $(cat /data/tcpdump.pid) && 
-		 while ! ps | grep "\[tcpdump\]" 2>/dev/null; do 
-			 sleep 1; 
-		 done`,
-	)
-	if err != nil {
+	if err := stopAndNormalizeCapture(ctx, targetPodName); err != nil {
 		return fmt.Errorf("failed to stop tcpdump in target pod: %v", err)
 	}
 
 	// Download the pcap file and tcpdump log file from the target pod
 	log.Printf("Stopped traffic capture on target pod %v for scenario %v", targetPodName, s.Name)
-	err = kubeapi.CopyFileFromPod(ctx, targetPodName, "tcpdump", "/data/dump.pcap", pcapPath, true)
+	err := kubeapi.CopyFileFromPod(ctx, targetPodName, TcpdumpContainerName, RawPcapPath, rawPcapPath, true)
+	if err != nil {
+		return fmt.Errorf("failed to download raw pcap file from target pod: %v", err)
+	}
+	err = kubeapi.CopyFileFromPod(ctx, targetPodName, ReordercapContainerName, NormalizedPcapPath, pcapPath, true)
 	if err != nil {
 		return fmt.Errorf("failed to download pcap file from target pod: %v", err)
 	}
-	err = kubeapi.CopyFileFromPod(ctx, targetPodName, "tcpdump", "/data/tcpdump.log", tcpdumpLogPath, true)
+	err = kubeapi.CopyFileFromPod(ctx, targetPodName, TcpdumpContainerName, TcpdumpLogPath, tcpdumpLogPath, true)
 	if err != nil {
 		return fmt.Errorf("failed to download tcpdump log file from target pod: %v", err)
+	}
+	err = kubeapi.CopyFileFromPod(ctx, targetPodName, ReordercapContainerName, ReordercapLogPath, reordercapLogPath, true)
+	if err != nil {
+		return fmt.Errorf("failed to download reordercap log file from target pod: %v", err)
 	}
 
 	// Download the attacker's output log (attack.log)
