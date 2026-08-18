@@ -312,10 +312,7 @@ func (s *SingleTargetScenario) ProcessResults(ctx context.Context, outputDir str
 		go func(pod *ProcessingPod, scenarioName string, outputDir string) {
 			defer wg.Done()
 
-			labels := copyLabels(s.Target.Labels)
-			labels["target"] = s.Target.Name
-
-			err := pod.ProcessPcap(ctx, filepath.Join(outputDir, "dump.pcap"), scenarioName, s.Target.Name, outputDir, labels)
+			err := pod.ProcessPcap(ctx, filepath.Join(outputDir, "dump.pcap"), scenarioName, s.Target.Name, outputDir)
 			if err != nil {
 				errCh <- fmt.Errorf("process pcap with pod %s: %w", pod.Name, err)
 			}

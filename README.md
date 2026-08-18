@@ -41,6 +41,8 @@ kubectl label node nuccore concap-role=target --overwrite
 
 Concap validates the namespace and pull secret at startup. Scenario pods remain pending if the required role-labeled node is unavailable; they do not silently fall back to same-node placement.
 
+Operational checklist, scenario lifecycle, and failure triage: [Concap K3s Scenario Runbook](docs/K3S_RUNBOOK.md).
+
 ## Installation
 
 Build the repository using the provided build script:
@@ -85,10 +87,11 @@ make run
    1. Parse the processing and scenario files.
    2. Create the necessary pods.
    3. Asynchronously execute the attacks.
-   4. Capture all traffic received by the target(s) to pcap file(s).
-   5. Perform flow reconstruction and feature extraction to csv file(s).
-   6. When labels are provided in the scenario definition, the csv file(s) are labeled.
-   7. Download output files to your machine.
+   4. Capture all traffic received by the target(s) to raw pcap file(s).
+   5. Normalize captured pcaps into timestamp order.
+   6. Perform flow reconstruction and feature extraction to csv file(s).
+   7. Preserve labels in the completed scenario YAML for audit and downstream dataset packaging.
+   8. Download output files to your machine.
 
 ## Scenario Types
 
@@ -247,7 +250,7 @@ network: # Default network settings for targets without specific settings
 
 ### Target-Specific Labels
 
-Similarly, you can specify target-specific labels that will be merged with the scenario-level labels. Target-specific labels take precedence over global labels.
+Similarly, you can specify target-specific labels that will be merged with the scenario-level labels. Target-specific labels take precedence over global labels. Labels are stored in the completed scenario YAML; processing outputs keep the schema produced by the processor.
 
 ```yaml
 type: multi-target
@@ -356,7 +359,7 @@ Each probe can be configured with:
 
 ## Processing Pods
 
-Processing pods analyze the traffic received by the target(s) during scenario execution. This traffic is captured by `tcpdump`. Each processing pod requires the following specifications:
+Processing pods analyze the traffic received by the target(s) during scenario execution. This traffic is captured by `tcpdump` as `dump.raw.pcap`, normalized into timestamp order as `dump.pcap`, and then passed to the configured processors. Processor output files are downloaded without Concap-added label or metadata columns. Each processing pod requires the following specifications:
 
 - **Name**: A unique identifier for the processing pod. Will be used as filename for output files.
 - **Container Image**: The Docker image to be used for the processing pod.
@@ -382,8 +385,6 @@ containerImage: ghcr.io/idlab-discover/concap/cicflowmeter:tools-1.0.0
 command: >
   mkdir -p /data/output/$INPUT_FILE_NAME/ &&
   pcapfix $INPUT_FILE -o $INPUT_FILE &&
-  reordercap $INPUT_FILE /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME_fix.pcap &&
-  mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME_fix.pcap $INPUT_FILE &&
   /CICFlowMeter/bin/cfm $INPUT_FILE /data/output/$INPUT_FILE_NAME/ &&
   mv /data/output/$INPUT_FILE_NAME/$INPUT_FILE_NAME.pcap_Flow.csv $OUTPUT_FILE
 ```

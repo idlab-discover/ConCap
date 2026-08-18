@@ -418,17 +418,14 @@ func (s *MultiTargetScenario) ProcessResults(ctx context.Context, outputDir stri
 		// For each target, process with all processing pods
 		for _, pod := range processingPods {
 			wg.Add(1)
-			go func(pod *ProcessingPod, scenarioName string, targetName string, targetDir string, labels map[string]string) {
+			go func(pod *ProcessingPod, scenarioName string, targetName string, targetDir string) {
 				defer wg.Done()
 
-				labels = copyLabels(labels)
-				labels["target"] = targetName
-
-				err := pod.ProcessPcap(ctx, filepath.Join(targetDir, "dump.pcap"), scenarioName, targetName, targetDir, labels)
+				err := pod.ProcessPcap(ctx, filepath.Join(targetDir, "dump.pcap"), scenarioName, targetName, targetDir)
 				if err != nil {
 					errCh <- fmt.Errorf("process target %s with pod %s: %w", targetName, pod.Name, err)
 				}
-			}(pod, s.Name, target.Name, targetDir, target.Labels)
+			}(pod, s.Name, target.Name, targetDir)
 		}
 	}
 
