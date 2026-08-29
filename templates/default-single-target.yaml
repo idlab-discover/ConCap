@@ -1,0 +1,80 @@
+# Blank Concap single-target scenario template.
+# Concap derives the scenario name from the filename and writes uuid, timing, and
+# deployment fields only after execution.
+type: single-target
+
+attacker:
+  name: ""
+  image: ""
+  atkCommand: ""
+  # Optional. Leave empty to run atkCommand until it exits.
+  atkTime: ""
+  cpuRequest: "250m"
+  cpuLimit: ""
+  memRequest: "250Mi"
+  memLimit: ""
+  privileged: false
+  # Optional attacker-specific network override. Values here override the
+  # top-level network defaults for the attacker pod.
+  # network:
+  #   bandwidth: "100Mbit"
+  #   queueSize: "100ms"
+  #   limit: "10000"
+  #   delay: "1ms"
+  #   jitter: "0ms"
+  #   distribution: "normal"
+  #   loss: "0%"
+  #   corrupt: "0%"
+  #   duplicate: "0%"
+  #   seed: "0"
+
+target:
+  name: ""
+  image: ""
+  commandArgs: ""
+  env: {}
+  filter: "((dst host $ATTACKER_IP and src host $TARGET_IP) or (dst host $TARGET_IP and src host $ATTACKER_IP)) and not arp"
+  cpuRequest: "250m"
+  cpuLimit: ""
+  memRequest: "250Mi"
+  memLimit: ""
+  privileged: false
+  labels: {}
+  # Optional target-specific network override. Values here override the
+  # top-level network defaults for the target pod.
+  # network:
+  #   bandwidth: "100Mbit"
+  #   queueSize: "100ms"
+  #   limit: "10000"
+  #   delay: "1ms"
+  #   jitter: "0ms"
+  #   distribution: "normal"
+  #   loss: "0%"
+  #   corrupt: "0%"
+  #   duplicate: "0%"
+  #   seed: "0"
+  # Optional Kubernetes probe. Fill in a real port/path before enabling it.
+  # startupProbe:
+  #   tcpSocket:
+  #     port: 22
+  #   initialDelaySeconds: 5
+  #   periodSeconds: 2
+  #   failureThreshold: 30
+
+network:
+  bandwidth: "100Mbit"
+  queueSize: "100ms"
+  limit: "10000"
+  delay: "1ms"
+  jitter: "0ms"
+  distribution: "normal"
+  loss: "0%"
+  corrupt: "0%"
+  duplicate: "0%"
+  seed: "0"
+
+labels:
+  label: ""
+  category: ""
+  subcategory: ""
+  mitreTechnique: ""
